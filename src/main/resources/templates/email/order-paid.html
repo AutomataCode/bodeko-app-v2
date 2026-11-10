@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Confirmación de compra</title>
+</head>
+<body style="margin:0;padding:24px;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;">
+    <tr>
+        <td style="padding:24px 32px;border-bottom:1px solid #e4e4e7;">
+            <h1 style="margin:0;font-size:20px;" th:text="${storeName}">Tienda</h1>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:24px 32px;">
+            <h2 style="margin:0 0 8px 0;font-size:18px;" th:text="'¡Gracias por tu compra, ' + ${customerName} + '!'">Gracias</h2>
+            <p style="margin:0 0 16px 0;">Recibimos tu pago correctamente. Este es el resumen de tu pedido.</p>
+            <p style="margin:0 0 4px 0;"><strong>N.º de orden:</strong> <span th:text="${orderNumber}">BOD-0</span></p>
+            <p style="margin:0 0 16px 0;">
+                <strong>Comprobante:</strong>
+                <span th:text="${invoiceType == 'INVOICE'} ? 'Factura' : 'Boleta'">Boleta</span>
+                (<span th:text="${documentNumber}">00000000</span>)
+            </p>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:14px;">
+                <thead>
+                <tr style="background:#f4f4f5;text-align:left;">
+                    <th>Producto</th>
+                    <th style="text-align:center;">Cant.</th>
+                    <th style="text-align:right;">P. unit.</th>
+                    <th style="text-align:right;">Subtotal</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="item : ${items}" style="border-bottom:1px solid #e4e4e7;">
+                    <td th:text="${item.name()}">Producto</td>
+                    <td style="text-align:center;" th:text="${item.quantity()}">1</td>
+                    <td style="text-align:right;" th:text="${item.unitPrice()}">S/ 0.00</td>
+                    <td style="text-align:right;" th:text="${item.subtotal()}">S/ 0.00</td>
+                </tr>
+                </tbody>
+            </table>
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="4" style="margin-top:16px;font-size:14px;">
+                <tr>
+                    <td style="text-align:right;">Subtotal</td>
+                    <td style="text-align:right;width:120px;" th:text="${subtotal}">S/ 0.00</td>
+                </tr>
+                <tr>
+                    <td style="text-align:right;">IGV</td>
+                    <td style="text-align:right;" th:text="${taxAmount}">S/ 0.00</td>
+                </tr>
+                <tr>
+                    <td style="text-align:right;font-weight:bold;">Total pagado</td>
+                    <td style="text-align:right;font-weight:bold;" th:text="${total}">S/ 0.00</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:16px 32px;font-size:12px;color:#71717a;border-top:1px solid #e4e4e7;">
+            Este es un correo automático, por favor no respondas a este mensaje.
+        </td>
+    </tr>
+</table>
+</body>
+</html>

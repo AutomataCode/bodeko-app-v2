@@ -1,0 +1,67 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Variables de Entorno ###
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+### Credenciales y datos locales ###
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+.pgpass
+.npmrc
+credentials.json
+service-account*.json
+service_account*.json
+*.log
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.hprof
+.qa/
+.codex/
+.agents/
+
+### Simuladores Python locales ###
+__pycache__/
+*.py[cod]
