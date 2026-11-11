@@ -1,24 +1,12 @@
 package com.reydiazz.bodeko.core.product.offer.web.request;
-
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Digits;
-import jakarta.validation.constraints.NotNull;
-
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-
+/** Datos para crear una oferta porcentual con una ventana de vigencia. */
 public record CreateProductOfferRequest(
-
-        @NotNull(message = "Offer price is required")
-        @DecimalMin(value = "0.00", message = "Offer price cannot be negative")
-        @Digits(integer = 10, fraction = 2, message = "Offer price must have at most 10 integer digits and 2 decimals")
-        BigDecimal offerPrice,
-
-        @NotNull(message = "Start date is required")
-        OffsetDateTime startsAt,
-
-        @NotNull(message = "End date is required")
-        OffsetDateTime endsAt
-
-) {
-}
+    @NotNull(message="El porcentaje es obligatorio; usa discountPercentage")
+    @DecimalMin(value="0.01",message="El descuento mínimo es 0.01 por ciento")
+    @DecimalMax(value="99.99",message="El descuento máximo es 99.99 por ciento")
+    @Digits(integer=2,fraction=2,message="El porcentaje admite dos decimales") BigDecimal discountPercentage,
+    @NotNull(message="La fecha inicial es obligatoria") OffsetDateTime startsAt,
+    @NotNull(message="La fecha final es obligatoria") OffsetDateTime endsAt) {}

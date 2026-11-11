@@ -60,6 +60,19 @@ public class ProductOffer {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "discount_percentage", precision = 5, scale = 2)
+    private BigDecimal discountPercentage;
+
+    /** Calcula sobre el precio vigente; el mínimo monetario es un céntimo. */
+    public BigDecimal getOfferPrice() {
+        return discountPercentage == null ? offerPrice : percentagePrice(product.getBasePrice(), discountPercentage);
+    }
+
+    public static BigDecimal percentagePrice(BigDecimal base, BigDecimal percentage) {
+        return base.multiply(BigDecimal.ONE.subtract(percentage.movePointLeft(2)))
+            .setScale(2, java.math.RoundingMode.HALF_UP).max(new BigDecimal("0.01"));
+    }
+
     public boolean isActiveAt(OffsetDateTime moment) {
         return !moment.isBefore(startsAt) && moment.isBefore(endsAt);
     }

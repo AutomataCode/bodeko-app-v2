@@ -5,6 +5,16 @@ export class UserFacingError extends Error {}
 
 /** Traducciones estables por código; no se muestran mensajes técnicos del servidor. */
 const messages: Record<string, string> = {
+  PRODUCT_DUPLICATE: 'Ya existe un producto con ese nombre en esta tienda.',
+  STORE_DUPLICATE: 'Ya tienes una tienda con ese nombre.',
+  IDEMPOTENCY_REQUIRED: 'Falta la clave de la operación. Actualiza la página.',
+  IDEMPOTENCY_CONFLICT: 'La clave de esta operación corresponde a otros datos.',
+  OPERATION_IN_PROGRESS: 'La operación sigue en proceso. Espera antes de reintentar.',
+  OPERATION_UNCERTAIN: 'El resultado del pago o devolución requiere revisión. No repitas el cobro.',
+  CONCURRENT_UPDATE: 'Otra solicitud está cambiando estos datos. Actualiza la información.',
+  QUANTITY_LIMIT: 'La cantidad máxima por producto es 10000.',
+  PRICE_LIMIT: 'El importe supera el límite permitido para un cobro.',
+
   BAD_CREDENTIALS: 'El correo o la contraseña son incorrectos.',
   USER_EMAIL_EXIST: 'Este correo ya está registrado.',
   UNAUTHORIZED: 'Inicia sesión para continuar.',
@@ -32,7 +42,8 @@ const messages: Record<string, string> = {
   PAYMENT_REFUND_REJECTED: 'No se pudo procesar la devolución. Contacta al administrador.',
   PAYMENT_GATEWAY_INVALID_REQUEST:
     'La pasarela no aceptó los datos del pago. Genera un nuevo token e inténtalo nuevamente.',
-  PAYMENT_GATEWAY_UNAVAILABLE: 'La pasarela de pagos no está disponible. Inténtalo más tarde.',
+  PAYMENT_GATEWAY_UNAVAILABLE:
+    'No se confirmó el resultado de la pasarela. Consulta la orden antes de repetir el pago.',
   VALIDATION_ERROR: 'Revisa los campos del formulario.',
   INVALID_REQUEST: 'Los datos enviados no son válidos.',
   INVALID_PARAMETER_TYPE: 'Revisa los filtros o identificadores enviados.',

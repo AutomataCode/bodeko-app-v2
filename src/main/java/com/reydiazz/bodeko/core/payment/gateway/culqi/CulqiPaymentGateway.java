@@ -40,11 +40,14 @@ public class CulqiPaymentGateway implements PaymentGateway {
 
     private final RestClient restClient;
     private final boolean configured;
+    private final com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency;
 
     public CulqiPaymentGateway(
             @Value("${culqi.api-url}") String apiUrl,
-            @Value("${culqi.secret-key}") String secretKey
+            @Value("${culqi.secret-key}") String secretKey,
+            com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency
     ) {
+        this.idempotency=idempotency;
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(10));
         requestFactory.setReadTimeout(Duration.ofSeconds(30));
@@ -75,6 +78,7 @@ public class CulqiPaymentGateway implements PaymentGateway {
                 "Orden " + request.orderNumber(),
                 Map.of("order_number", request.orderNumber())
         );
+        idempotency.markExternalStarted();
         try {
             return restClient.post()
                     .uri(CHARGES_PATH)
@@ -83,7 +87,7 @@ public class CulqiPaymentGateway implements PaymentGateway {
                     .exchange((httpRequest, httpResponse) ->
                             toResult(httpResponse.getStatusCode(), httpResponse.bodyTo(CulqiChargeResponse.class)));
         } catch (RestClientException exception) {
-            log.error("Culqi request failed", exception);
+            log.error("No se pudo confirmar la respuesta del cobro de Culqi");
             throw new PaymentGatewayException(PaymentErrorCode.GATEWAY_UNAVAILABLE);
         }
     }
@@ -120,6 +124,7 @@ public class CulqiPaymentGateway implements PaymentGateway {
                 request.transactionId(),
                 REFUND_REASON
         );
+        idempotency.markExternalStarted();
         try {
             return restClient.post()
                     .uri(REFUNDS_PATH)
@@ -128,7 +133,7 @@ public class CulqiPaymentGateway implements PaymentGateway {
                     .exchange((httpRequest, httpResponse) ->
                             toRefundResult(httpResponse.getStatusCode(), httpResponse.bodyTo(CulqiRefundResponse.class)));
         } catch (RestClientException exception) {
-            log.error("Culqi refund request failed", exception);
+            log.error("No se pudo confirmar la respuesta del reembolso de Culqi");
             throw new PaymentGatewayException(PaymentErrorCode.GATEWAY_UNAVAILABLE);
         }
     }
@@ -153,7 +158,13 @@ public class CulqiPaymentGateway implements PaymentGateway {
     }
 
     private int toCents(BigDecimal amount) {
-        return amount.setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).intValueExact();
+        try {
+            int cents=amount.setScale(2, RoundingMode.UNNECESSARY).movePointRight(2).intValueExact();
+            if (cents<=0) throw new ArithmeticException();
+            return cents;
+        } catch (ArithmeticException error) {
+            throw new com.reydiazz.bodeko.core.payment.exception.PaymentInvalidAmountException();
+        }
     }
 
 }

@@ -29,6 +29,7 @@ public class ProductOfferServiceImpl implements ProductOfferService {
     private final ProductOfferMapper productOfferMapper;
 
     private final ProductService productService;
+    private final com.reydiazz.bodeko.core.product.core.repository.ProductRepository productRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -43,7 +44,8 @@ public class ProductOfferServiceImpl implements ProductOfferService {
     @Transactional
     public ProductOfferResponse create(UUID productId, UUID storeId, CreateProductOfferRequest request) {
         verifyDateRange(request.startsAt(), request.endsAt());
-        Product product = productService.findEntityById(productId, storeId);
+        Product product = productRepository.findByIdAndStoreIdForUpdate(productId, storeId)
+            .orElseThrow(com.reydiazz.bodeko.core.product.core.exception.ProductNotFoundException::new);
         verifyNoOverlap(productId, request.startsAt(), request.endsAt());
         ProductOffer offer = ProductOffer.builder()
                 .productId(product.getId())
@@ -51,7 +53,8 @@ public class ProductOfferServiceImpl implements ProductOfferService {
                 .product(product)
                 .startsAt(request.startsAt())
                 .endsAt(request.endsAt())
-                .offerPrice(request.offerPrice())
+                .discountPercentage(request.discountPercentage())
+                .offerPrice(ProductOffer.percentagePrice(product.getBasePrice(), request.discountPercentage()))
                 .createdAt(OffsetDateTime.now())
                 .build();
         ProductOffer offerSaved = productOfferRepository.save(offer);

@@ -5,6 +5,7 @@
  * Crea cuentas, tiendas, productos y órdenes sintéticas. No elimina esos datos.
  */
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 if (!process.argv.includes('--disposable'))
   throw new Error('Usa --disposable con una base de pruebas.');
@@ -19,6 +20,10 @@ async function request(path, { token, method = 'GET', body, status = 200 } = {})
     method,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(['POST', 'PATCH'].includes(method) &&
+      /\/orders(?:\/[^/]+\/(?:payments|cancel|status))?$/.test(path)
+        ? { 'Idempotency-Key': randomUUID() }
+        : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -192,7 +197,7 @@ const attempts = await Promise.all(
   [1, 2].map(() =>
     fetch(`${base}/customer/orders/${concurrent.id}/cancel`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${customer}` },
+      headers: { Authorization: `Bearer ${customer}`, 'Idempotency-Key': randomUUID() },
     }),
   ),
 );

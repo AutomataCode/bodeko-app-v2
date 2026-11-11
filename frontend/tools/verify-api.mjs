@@ -6,6 +6,7 @@
  * Ejecutar: node tools/verify-api.mjs --disposable
  */
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 if (!process.argv.includes('--disposable')) {
   throw new Error('Esta prueba crea datos. Usa --disposable únicamente con una base desechable.');
@@ -24,6 +25,10 @@ async function request(path, { method = 'GET', body, token, expected = 200 } = {
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(['POST', 'PATCH'].includes(method) &&
+      /\/orders(?:\/[^/]+\/(?:payments|cancel|status))?$/.test(path)
+        ? { 'Idempotency-Key': randomUUID() }
+        : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -145,7 +150,7 @@ await request(`/stores/${store.id}/products/${product.id}/offers`, {
   token: owner.token,
   expected: 201,
   body: {
-    offerPrice: 20,
+    discountPercentage: 22.78,
     startsAt: new Date(Date.now() - 60000).toISOString(),
     endsAt: new Date(Date.now() + 86400000).toISOString(),
   },
@@ -257,7 +262,11 @@ await request(`/stores/${store.id}/products/${product.id}/offers`, {
   method: 'POST',
   token: owner.token,
   expected: 400,
-  body: { offerPrice: 10, startsAt: '2026-11-20T10:00:00Z', endsAt: '2026-11-19T10:00:00Z' },
+  body: {
+    discountPercentage: 10,
+    startsAt: '2026-11-20T10:00:00Z',
+    endsAt: '2026-11-19T10:00:00Z',
+  },
 });
 const emptyCategory = await request(`/stores/${store.id}/categories`, {
   method: 'POST',

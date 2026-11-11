@@ -1,5 +1,8 @@
 # Bodeko — Frontend del Entregable 2
 
+Actualización 11/11/2026: antes de desplegar revisar [validaciones del backend](../docs/VALIDACIONES_BACKEND.md). Las ofertas nuevas reciben porcentajes y checkout/pagos/cancelaciones requieren Idempotency-Key; los clientes incluidos ya están adaptados. Flyway aplica ahora V1-V8.
+
+
 SPA en React, TypeScript estricto y Vite, integrada con el backend Spring de este repositorio. La marca del proyecto es **Bodeko**; el otro nombre del Excel pertenece a su plantilla. La interfaz toma colores, espaciado y superficies de Polaris; no depende del paquete Polaris.
 
 La portada muestra las tres tiendas con más órdenes vendidas mediante `GET /api/public/stores/top-selling`. El directorio completo está en `/tiendas`. Ver diseño, criterio de ventas y pruebas en [docs/LANDING.md](docs/LANDING.md).
@@ -20,7 +23,7 @@ Abre `http://localhost:3000`. El proxy envía `/api` al backend en `http://local
 
 ## Preparar el backend
 
-Configura una base de desarrollo y ejecuta Spring desde la raíz del repositorio. Flyway aplica V1–V5 automáticamente. Las variables estándar de Spring permiten configurar la conexión sin editar `application.properties`:
+Configura una base de desarrollo y ejecuta Spring desde la raíz del repositorio. Flyway aplica V1-V8 automáticamente. Las variables estándar de Spring permiten configurar la conexión sin editar `application.properties`:
 
 ```powershell
 $env:SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/tu_base_de_desarrollo'

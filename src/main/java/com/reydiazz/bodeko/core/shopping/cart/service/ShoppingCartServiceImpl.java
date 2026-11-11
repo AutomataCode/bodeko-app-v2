@@ -42,6 +42,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
 
     private final StoreService storeService;
     private final UserService userService;
+    private final org.springframework.jdbc.core.JdbcTemplate cartLocks;
     private final ProductService productService;
     private final ProductOfferService productOfferService;
 
@@ -56,13 +57,17 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     @Override
     @Transactional
     public ShoppingCartResponse addItem(UUID userId, UUID storeId, AddCartItemRequest request) {
+        cartLocks.queryForList("select pg_advisory_xact_lock(hashtextextended(?,0))", "cart:"+userId+":"+storeId);
         storeService.findEntityById(storeId);
         Product product = productService.findEntityById(request.productId(), storeId);
         verifyAvailable(product);
-        ShoppingCart cart = findOpenCart(userId, storeId).orElseGet(() -> createCart(userId, storeId));
+        ShoppingCart cart = shoppingCartRepository.findByUserIdAndStoreIdAndStatusForUpdate(userId, storeId, ShoppingCartStatus.OPEN).orElseGet(() -> createCart(userId, storeId));
         int quantity = request.quantity() != null ? request.quantity() : DEFAULT_QUANTITY;
         Optional<ShoppingCartItem> existing = shoppingCartItemRepository.findByCartIdAndProductId(cart.getId(), product.getId());
         if (existing.isPresent()) {
+            if ((long)existing.get().getQuantity()+quantity > 10000) {
+                throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.QUANTITY_LIMIT);
+            }
             existing.get().increaseQuantity(quantity);
         } else {
             ShoppingCartItem item = ShoppingCartItem.builder()
@@ -125,7 +130,8 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     }
 
     private ShoppingCart findOpenCartOrThrow(UUID userId, UUID storeId) {
-        return findOpenCart(userId, storeId).orElseThrow(ShoppingCartNotFoundException::new);
+        return shoppingCartRepository.findByUserIdAndStoreIdAndStatusForUpdate(userId, storeId, ShoppingCartStatus.OPEN)
+            .orElseThrow(ShoppingCartNotFoundException::new);
     }
 
     private ShoppingCartItem findItemOrThrow(UUID cartId, UUID productId) {

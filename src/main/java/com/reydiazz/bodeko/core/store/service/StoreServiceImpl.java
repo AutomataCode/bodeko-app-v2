@@ -31,14 +31,17 @@ public class StoreServiceImpl implements StoreService {
     @Override
     @Transactional
     public StoreResponse create(UUID ownerId, CreateStoreRequest request) {
+        if (storeRepository.existsNormalizedName(ownerId, com.reydiazz.bodeko.shared.validation.NormalizedText.key(request.name()))) {
+            throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.STORE_DUPLICATE);
+        }
         String taxId = request.taxId().trim();
-        String subdomain = request.subdomain().trim().toLowerCase();
+        String subdomain = request.subdomain().trim().toLowerCase(java.util.Locale.ROOT);
         verifyTaxId(taxId);
         verifySubdomain(subdomain);
         Store store = Store.builder()
                 .id(UuidCreator.getTimeOrderedEpoch())
                 .owner(userService.getReferenceById(ownerId))
-                .name(request.name().trim())
+                .name(com.reydiazz.bodeko.shared.validation.NormalizedText.clean(request.name()))
                 .taxId(taxId)
                 .legalName(request.legalName().trim())
                 .subdomain(subdomain)

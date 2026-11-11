@@ -60,6 +60,7 @@ export function ProductsPage() {
           options={[
             { value: '', label: 'Todos los estados' },
             { value: 'ACTIVE', label: 'Activos' },
+            { value: 'INACTIVE', label: 'Inactivos' },
             { value: 'DRAFT', label: 'Borradores' },
             { value: 'ARCHIVED', label: 'Archivados' },
           ]}
@@ -131,6 +132,7 @@ export function ProductsPage() {
                       >
                         <option value="DRAFT">Borrador</option>
                         <option value="ACTIVE">Activo</option>
+                        <option value="INACTIVE">Inactivo</option>
                         <option value="ARCHIVED">Archivado</option>
                       </select>
                     </div>

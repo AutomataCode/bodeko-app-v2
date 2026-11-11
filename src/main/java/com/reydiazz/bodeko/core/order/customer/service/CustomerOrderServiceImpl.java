@@ -28,6 +28,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final OrderItemRepository orderItemRepository;
     private final OrderMapper orderMapper;
     private final OrderManagementService orderManagementService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -57,6 +58,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         // Evita que un pago u otro cambio de estado modifique la orden al mismo tiempo.
         Order order = orderRepository.findByIdAndCustomerIdForUpdate(orderId, customerId)
                 .orElseThrow(OrderManagementNotFoundException::new);
+        entityManager.refresh(order);
         // El cliente solo puede cancelar órdenes pendientes o pagadas.
         // Si falla el reembolso, se revierten el stock y el estado de la orden.
         OrderResponse snapshot = orderManagementService.changeStatus(orderId, order.getStore().getId(),

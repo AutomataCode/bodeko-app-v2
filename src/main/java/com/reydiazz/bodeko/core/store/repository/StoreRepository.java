@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface StoreRepository extends JpaRepository<Store, UUID> {
+    @Query(value = "select exists(select 1 from stores where owner_id=:ownerId and lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))=:name)", nativeQuery = true)
+    boolean existsNormalizedName(@Param("ownerId") UUID ownerId, @Param("name") String name);
+
 
     /** Cuenta cada orden vendida una vez. Los empates se ordenan por nombre e identificador. */
     @Query("""

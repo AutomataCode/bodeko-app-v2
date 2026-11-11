@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/config', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('@/config', () => ({ api: { get: vi.fn(), request: vi.fn(), post: vi.fn() } }));
 import { api } from '@/config';
 import { customerOrderService } from './customerOrderService';
 
 describe('Contrato del área de cliente', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.request).mockResolvedValue({ data: {} });
     vi.mocked(api.get).mockResolvedValue({ data: {} });
     vi.mocked(api.post).mockResolvedValue({ data: {} });
   });
@@ -17,6 +18,13 @@ describe('Contrato del área de cliente', () => {
   });
   it('solo solicita cancelar, sin permitir estados arbitrarios en el payload', async () => {
     await customerOrderService.cancel('order');
-    expect(api.post).toHaveBeenCalledWith('/customer/orders/order/cancel');
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'post',
+        url: '/customer/orders/order/cancel',
+        data: {},
+        headers: { 'Idempotency-Key': expect.any(String) },
+      }),
+    );
   });
 });

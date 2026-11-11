@@ -26,14 +26,19 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final com.reydiazz.bodeko.core.order.core.service.OrderService orderService;
+    private final com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency;
 
     @PostMapping
     public ResponseEntity<PaymentResponse> pay(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID storeId,
             @PathVariable UUID orderId,
+            @org.springframework.web.bind.annotation.RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
             @Valid @RequestBody CreatePaymentRequest request) {
-        PaymentResponse response = paymentService.pay(principal.user().getId(), storeId, orderId, request);
+        orderService.getByCustomer(principal.user().getId(),storeId,orderId);
+        PaymentResponse response = idempotency.execute(principal.user().getId(),"order:"+orderId,"pay",idempotencyKey,request,PaymentResponse.class,true,
+                () -> paymentService.pay(principal.user().getId(),storeId,orderId,request));
         if (response.status() == PaymentStatus.FAILED) {
             throw new PaymentDeclinedException(response.message());
         }

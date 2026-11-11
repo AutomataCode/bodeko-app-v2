@@ -22,6 +22,7 @@ public interface ProductOfferRepository extends JpaRepository<ProductOffer, Prod
             @Param("startsAt") OffsetDateTime startsAt,
             @Param("endsAt") OffsetDateTime endsAt);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "product")
     @Query("select o from ProductOffer o "
             + "where o.productId = :productId and o.startsAt <= :moment and o.endsAt > :moment "
             + "order by o.createdAt desc")
@@ -29,6 +30,7 @@ public interface ProductOfferRepository extends JpaRepository<ProductOffer, Prod
             @Param("productId") UUID productId,
             @Param("moment") OffsetDateTime moment);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "product")
     @Query("select o from ProductOffer o "
             + "where o.productId in :productIds and o.startsAt <= :moment and o.endsAt > :moment "
             + "order by o.createdAt desc")

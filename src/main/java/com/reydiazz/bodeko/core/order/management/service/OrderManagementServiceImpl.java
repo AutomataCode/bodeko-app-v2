@@ -55,6 +55,7 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
     private final InventoryService inventoryService;
     private final PaymentService paymentService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -86,6 +87,8 @@ public class OrderManagementServiceImpl implements OrderManagementService {
     public OrderResponse changeStatus(UUID orderId, UUID storeId, UUID adminId, ChangeOrderStatusRequest request) {
         Order order = orderRepository.findByIdAndStoreIdForUpdate(orderId, storeId)
                 .orElseThrow(OrderManagementNotFoundException::new);
+        // El estado se relee dentro del bloqueo, también después de una espera.
+        entityManager.refresh(order);
         OrderStatus from = order.getStatus();
         OrderStatus to = request.status();
         if (!ALLOWED_TRANSITIONS.get(from).contains(to)) {

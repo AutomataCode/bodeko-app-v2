@@ -8,14 +8,17 @@ public record CreateStoreRequest(
 
         @NotBlank(message = "Name is required")
         @Size(max = 150, message = "Name must have at most 150 characters")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String name,
 
         @NotBlank(message = "Tax ID is required")
         @Pattern(regexp = "^\\d{11}$", message = "Tax ID must have exactly 11 digits")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String taxId,
 
         @NotBlank(message = "Legal name is required")
         @Size(max = 200, message = "Legal name must have at most 200 characters")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String legalName,
 
         @NotBlank(message = "Subdomain is required")
@@ -24,6 +27,7 @@ public record CreateStoreRequest(
                 regexp = "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
                 flags = Pattern.Flag.CASE_INSENSITIVE,
                 message = "Subdomain can only contain letters, numbers and hyphens, and cannot start or end with a hyphen")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String subdomain
 
 ) {

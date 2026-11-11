@@ -50,11 +50,12 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse create(UUID storeId, CreateProductRequest request) {
+        verifyName(storeId, request.name(), null);
         Product product = Product.builder()
                 .id(UuidCreator.getTimeOrderedEpoch())
                 .store(storeService.getReferenceById(storeId))
                 .category(resolveCategory(request.categoryId(), storeId))
-                .name(request.name().trim())
+                .name(com.reydiazz.bodeko.shared.validation.NormalizedText.clean(request.name()))
                 .description(sanitize(request.description()))
                 .basePrice(request.basePrice())
                 .imageUrl(sanitize(request.imageUrl()))
@@ -69,9 +70,10 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse update(UUID id, UUID storeId, EditProductRequest request) {
-        Product product = findEntityById(id, storeId);
+        Product product = productRepository.findByIdAndStoreIdForUpdate(id, storeId).orElseThrow(ProductNotFoundException::new);
+        verifyName(storeId, request.name(), id);
         product.update(
-                request.name().trim(),
+                com.reydiazz.bodeko.shared.validation.NormalizedText.clean(request.name()),
                 sanitize(request.description()),
                 request.basePrice(),
                 sanitize(request.imageUrl()),
@@ -84,7 +86,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public ProductResponse changeStatus(UUID id, UUID storeId, ChangeProductStatusRequest request) {
-        Product product = findEntityById(id, storeId);
+        Product product = productRepository.findByIdAndStoreIdForUpdate(id, storeId).orElseThrow(ProductNotFoundException::new);
         product.changeStatus(request.status());
         return productMapper.toResponse(product);
     }
@@ -94,6 +96,13 @@ public class ProductServiceImpl implements ProductService {
     public Product findEntityById(UUID id, UUID storeId) {
         return productRepository.findByIdAndStoreId(id, storeId)
                 .orElseThrow(ProductNotFoundException::new);
+    }
+
+    /** El índice único es la última defensa si llegan dos escrituras a la vez. */
+    private void verifyName(UUID storeId, String name, UUID excluded) {
+        if (productRepository.existsNormalizedName(storeId, com.reydiazz.bodeko.shared.validation.NormalizedText.key(name), excluded)) {
+            throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.PRODUCT_DUPLICATE);
+        }
     }
 
     private Category resolveCategory(UUID categoryId, UUID storeId) {

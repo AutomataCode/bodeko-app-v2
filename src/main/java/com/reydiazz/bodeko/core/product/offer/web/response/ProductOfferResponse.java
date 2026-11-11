@@ -7,6 +7,7 @@ import java.util.UUID;
 public record ProductOfferResponse(
         UUID productId,
         BigDecimal offerPrice,
+        BigDecimal discountPercentage,
         OffsetDateTime startsAt,
         OffsetDateTime endsAt,
         boolean active,

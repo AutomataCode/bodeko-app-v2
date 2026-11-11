@@ -60,6 +60,8 @@ public class OrderServiceImpl implements OrderService {
     private final ShoppingCartService shoppingCartService;
     private final ProductOfferService productOfferService;
     private final InventoryService inventoryService;
+    private final com.reydiazz.bodeko.core.product.core.repository.ProductRepository productRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     /** Consulta una orden que pertenezca al cliente y a la tienda indicados. */
     @Override
@@ -85,6 +87,13 @@ public class OrderServiceImpl implements OrderService {
             throw new OrderEmptyCartException();
         }
 
+        // Todos los procesos bloquean productos en el mismo orden para reducir interbloqueos.
+        cartItems.stream().map(ShoppingCartItem::getProductId).sorted().forEach(id -> {
+            Product locked = productRepository.findByIdAndStoreIdForUpdate(id, storeId)
+                .orElseThrow(com.reydiazz.bodeko.core.product.core.exception.ProductNotFoundException::new);
+            entityManager.refresh(locked);
+            if (locked.getStatus() != ProductStatus.ACTIVE) throw new OrderProductNotAvailableException(locked.getName());
+        });
         OffsetDateTime now = OffsetDateTime.now();
         List<UUID> productIds = cartItems.stream().map(ShoppingCartItem::getProductId).toList();
         Map<UUID, BigDecimal> offerPrices = productOfferService.findActiveOfferPrices(productIds, now);
@@ -99,6 +108,9 @@ public class OrderServiceImpl implements OrderService {
                 .map(OrderLine::itemSubtotal));
         BigDecimal taxAmount = taxableBase.multiply(store.getTaxRate()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal total = subtotal.add(taxAmount);
+        if (total.signum()<=0 || total.movePointRight(2).compareTo(BigDecimal.valueOf(Integer.MAX_VALUE))>0) {
+            throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.PRICE_LIMIT);
+        }
 
         lines.forEach(line -> inventoryService.decreaseStock(line.product().getId(), line.cartItem().getQuantity()));
 

@@ -16,12 +16,15 @@ public record CheckoutRequest(
 
         @NotBlank(message = "Document number is required")
         @Size(max = 20, message = "Document number must have at most 20 characters")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String documentNumber,
 
         @Size(max = 200, message = "Business name must have at most 200 characters")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String businessName,
 
         @Size(max = 300, message = "Billing address must have at most 300 characters")
+        @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
         String billingAddress
 
 ) {

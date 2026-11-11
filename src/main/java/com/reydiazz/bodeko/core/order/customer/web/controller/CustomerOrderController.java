@@ -18,6 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CustomerOrderController {
     private final CustomerOrderService customerOrderService;
+    private final com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency;
 
     @GetMapping
     public PageResponse<CustomerOrderSummaryResponse> list(@AuthenticationPrincipal UserPrincipal principal,
@@ -32,7 +33,9 @@ public class CustomerOrderController {
     }
 
     @PostMapping("/{orderId}/cancel")
-    public CustomerOrderDetailResponse cancel(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID orderId) {
-        return customerOrderService.cancel(principal.user().getId(), orderId);
+    public CustomerOrderDetailResponse cancel(@AuthenticationPrincipal UserPrincipal principal, @PathVariable UUID orderId, @RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey) {
+        customerOrderService.detail(principal.user().getId(),orderId);
+        return idempotency.execute(principal.user().getId(),"order:"+orderId,"cancel",idempotencyKey,"cancel",CustomerOrderDetailResponse.class,true,
+                () -> customerOrderService.cancel(principal.user().getId(),orderId));
     }
 }

@@ -5,7 +5,7 @@ Estos scripts cargan **datos ficticios en una base de desarrollo** para probar e
 ## Orden de ejecución
 
 1. Crea/selecciona tu base de desarrollo en PostgreSQL.
-2. Configura el backend para conectarse a esa base y arráncalo una vez. Flyway debe aplicar **V1–V5**. No ejecutes manualmente los archivos de migración si ya usas Flyway.
+2. Configura el backend para conectarse a esa base y arráncalo una vez. Flyway debe aplicar **V1-V8**. No ejecutes manualmente los archivos de migración si ya usas Flyway.
 3. Ejecuta `00_compatibilidad_historial.sql` para alinear el historial antiguo con los nombres que espera este backend.
 4. Ejecuta `01_datos_demo.sql` completo.
 5. Ejecuta `02_consultas_verificacion.sql` para inspeccionar los registros.
@@ -25,7 +25,7 @@ En pgAdmin selecciona la **misma base que usa el backend**, abre **Query Tool** 
 
 Desde la raíz `bodeko-core-api-v2`, reemplaza el nombre de base/usuario si son distintos:
 
-El backend debe usar la misma base que indiques en `-Database`. La configuración local actual apunta a `db_bodekos_v2`. Cargar el demo en `db_bodekos` no lo hace visible en el backend conectado a `db_bodekos_v2`: son bases distintas. El ejecutor avisa si el nombre no coincide con el declarado en `application.properties`; si arrancas Spring con variables de entorno, comprueba su valor efectivo.
+El backend debe usar la misma base que indiques en `-Database`. El nombre efectivo se obtiene de DB_URL o de las variables estándar de Spring. Cargar el demo en `db_bodekos` no lo hace visible en el backend conectado a `db_bodekos_v2`: son bases distintas. El ejecutor avisa si el nombre no coincide con el declarado en `application.properties`; si arrancas Spring con variables de entorno, comprueba su valor efectivo.
 
 ```powershell
 .\scripts\db\ejecutar-demo.ps1 -Database db_bodekos_v2 -DbUser postgres

@@ -2724,7 +2724,14 @@ td select {
 ````typescript
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/config', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: {
+    get: vi.fn(),
+    request: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 import { api } from '@/config';
 import { catalogService } from '@/features/catalog/services/catalogService';
@@ -2736,6 +2743,7 @@ import { inventoryService } from '@/features/inventory/services/inventoryService
 describe('Contratos de integración con Spring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.request).mockResolvedValue({ data: {} });
     for (const method of [api.get, api.post, api.patch])
       vi.mocked(method).mockResolvedValue({ data: {} });
   });
@@ -2758,9 +2766,14 @@ describe('Contratos de integración con Spring', () => {
   });
   it('no envía importes desde el navegador al cobrar una orden', async () => {
     await paymentService.pay('store', 'order', 'tkn_test_valid');
-    expect(api.post).toHaveBeenCalledWith('/customer/stores/store/orders/order/payments', {
-      sourceId: 'tkn_test_valid',
-    });
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'post',
+        url: '/customer/stores/store/orders/order/payments',
+        data: { sourceId: 'tkn_test_valid' },
+        headers: { 'Idempotency-Key': expect.any(String) },
+      }),
+    );
   });
   it('recupera una orden por la ruta protegida del cliente', async () => {
     await checkoutService.get('store', 'order');
@@ -4911,17 +4924,19 @@ export function CheckoutForm({ storeId, onCreated }: CheckoutFormProps) {
 ### frontend/src/features/checkout/hooks/useCheckout.ts
 
 ````typescript
+import { useCart } from '@/context/CartContext';
 import { useAction } from '@/core/hooks/useAction';
 import { checkoutService } from '../services/checkoutService';
 import type { CheckoutInput } from '../types';
 /** Coordina confirmación de la orden y manejo de errores de stock/datos fiscales. */
 export function useCheckout(storeId: string) {
   const action = useAction();
+  const { cart } = useCart();
   return {
     ...action,
     create: (body: CheckoutInput) =>
       action.run(
-        () => checkoutService.create(storeId, body),
+        () => checkoutService.create(storeId, body, cart?.id || ''),
         'Orden creada. Continúa con el pago.',
       ),
   };
@@ -4937,13 +4952,14 @@ export { CheckoutPage } from './CheckoutPage';
 ### frontend/src/features/checkout/services/checkoutService.ts
 
 ````typescript
+import { idempotentRequest } from '@/config/idempotency';
 import { api } from '@/config';
 import type { Order } from '@/features/orders';
 import type { CheckoutInput } from '../types';
 /** Crea la orden, fija los precios y descuenta stock en una sola operación del servidor. */
 export const checkoutService = {
-  create: async (storeId: string, body: CheckoutInput) =>
-    (await api.post<Order>(`/customer/stores/${storeId}/orders`, body)).data,
+  create: async (storeId: string, body: CheckoutInput, cartId = '') =>
+    idempotentRequest<Order>('post', `/customer/stores/${storeId}/orders`, body, cartId),
   get: async (storeId: string, orderId: string) =>
     (await api.get<Order>(`/customer/stores/${storeId}/orders/${orderId}`)).data,
 };
@@ -5526,13 +5542,14 @@ export { CustomerOrderDetailPage } from './CustomerOrderDetailPage';
 
 ````typescript
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-vi.mock('@/config', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('@/config', () => ({ api: { get: vi.fn(), request: vi.fn(), post: vi.fn() } }));
 import { api } from '@/config';
 import { customerOrderService } from './customerOrderService';
 
 describe('Contrato del área de cliente', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.request).mockResolvedValue({ data: {} });
     vi.mocked(api.get).mockResolvedValue({ data: {} });
     vi.mocked(api.post).mockResolvedValue({ data: {} });
   });
@@ -5544,7 +5561,14 @@ describe('Contrato del área de cliente', () => {
   });
   it('solo solicita cancelar, sin permitir estados arbitrarios en el payload', async () => {
     await customerOrderService.cancel('order');
-    expect(api.post).toHaveBeenCalledWith('/customer/orders/order/cancel');
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'post',
+        url: '/customer/orders/order/cancel',
+        data: {},
+        headers: { 'Idempotency-Key': expect.any(String) },
+      }),
+    );
   });
 });
 ````
@@ -5552,6 +5576,7 @@ describe('Contrato del área de cliente', () => {
 ### frontend/src/features/customer-orders/services/customerOrderService.ts
 
 ````typescript
+import { idempotentRequest } from '@/config/idempotency';
 import { api } from '@/config';
 import type { Page } from '@/core/types';
 import type { CustomerOrderDetail, CustomerOrderSummary } from '../types';
@@ -5567,7 +5592,7 @@ export const customerOrderService = {
   detail: async (orderId: string) =>
     (await api.get<CustomerOrderDetail>(`/customer/orders/${orderId}`)).data,
   cancel: async (orderId: string) =>
-    (await api.post<CustomerOrderDetail>(`/customer/orders/${orderId}/cancel`)).data,
+    idempotentRequest<CustomerOrderDetail>('post', `/customer/orders/${orderId}/cancel`, {}),
 };
 ````
 
@@ -6062,7 +6087,12 @@ export function OffersPage() {
             {offers.data?.length ? (
               offers.data.map((offer) => (
                 <article className="offer-row" key={`${offer.startsAt}-${offer.endsAt}`}>
-                  <strong>{money(offer.offerPrice, store.currency)}</strong>
+                  <strong>
+                    {offer.discountPercentage != null
+                      ? `${offer.discountPercentage}% · `
+                      : 'Oferta anterior · '}
+                    {money(offer.offerPrice, store.currency)}
+                  </strong>
                   <span className={`badge ${offer.active ? 'badge-active' : ''}`}>
                     {offer.active ? 'Vigente' : 'Fuera de vigencia'}
                   </span>
@@ -6100,7 +6130,7 @@ export interface OfferFormProps {
 }
 /** Convierte fechas locales a ISO con zona para evitar promociones desplazadas. */
 export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
-  const [price, setPrice] = useState('');
+  const [percentage, setPercentage] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -6110,18 +6140,25 @@ export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSubmitted(true);
-    if (!isMoney(price) || !validStart || !validEnd) return;
+    if (
+      !isMoney(percentage) ||
+      Number(percentage) <= 0 ||
+      Number(percentage) >= 100 ||
+      !validStart ||
+      !validEnd
+    )
+      return;
     const result = await action.run(
       () =>
         offerService.create(storeId, productId, {
-          offerPrice: Number(price),
+          discountPercentage: Number(percentage),
           startsAt: new Date(start).toISOString(),
           endsAt: new Date(end).toISOString(),
         }),
       'Oferta creada.',
     );
     if (result) {
-      setPrice('');
+      setPercentage('');
       setStart('');
       setEnd('');
       setSubmitted(false);
@@ -6133,14 +6170,19 @@ export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
       <h2>Nueva oferta</h2>
       <ErrorNotice message={action.error} />
       <Field
-        label="Precio de oferta (S/)"
-        example="19.90"
+        label="Descuento (%)"
+        example="20.00"
         rule="money"
         inputMode="decimal"
         required
-        value={price}
-        onChange={setPrice}
-        error={submitted && !isMoney(price) ? 'Ingresa un precio válido no negativo.' : ''}
+        value={percentage}
+        onChange={setPercentage}
+        error={
+          submitted &&
+          (!isMoney(percentage) || Number(percentage) <= 0 || Number(percentage) >= 100)
+            ? 'Ingresa un descuento entre 0.01 y 99.99 %.'
+            : ''
+        }
       />
       <Field
         label="Fecha y hora de inicio"
@@ -6210,14 +6252,15 @@ export const offerService = {
 export interface Offer {
   productId: string;
   offerPrice: number;
+  discountPercentage: number | null;
   startsAt: string;
   endsAt: string;
   active: boolean;
   createdAt: string;
 }
-/** Precio y ventana temporal de una nueva oferta. */
+/** Porcentaje y ventana temporal de una nueva oferta. */
 export interface OfferInput {
-  offerPrice: number;
+  discountPercentage: number;
   startsAt: string;
   endsAt: string;
 }
@@ -6525,6 +6568,7 @@ export type { Order, OrderStatus, InvoiceType } from './types';
 ### frontend/src/features/orders/services/orderService.ts
 
 ````typescript
+import { idempotentRequest } from '@/config/idempotency';
 import { api } from '@/config';
 import type { Page } from '@/core/types';
 import type { Order, OrderStatus, OrderSummary } from '../types';
@@ -6539,7 +6583,7 @@ export const orderService = {
   detail: async (storeId: string, orderId: string) =>
     (await api.get<Order>(`/stores/${storeId}/orders/${orderId}`)).data,
   status: async (storeId: string, orderId: string, status: OrderStatus) =>
-    (await api.patch<Order>(`/stores/${storeId}/orders/${orderId}/status`, { status })).data,
+    idempotentRequest<Order>('patch', `/stores/${storeId}/orders/${orderId}/status`, { status }),
 };
 ````
 
@@ -6895,16 +6939,14 @@ export function loadCulqi(): Promise<CulqiConstructor> {
 ### frontend/src/features/payments/services/paymentService.ts
 
 ````typescript
-import { api } from '@/config';
+import { idempotentRequest } from '@/config/idempotency';
 import type { Payment } from '../types';
 /** Envía solo el token: importe y correo se obtienen del pedido en el servidor. */
 export const paymentService = {
   pay: async (storeId: string, orderId: string, sourceId: string) =>
-    (
-      await api.post<Payment>(`/customer/stores/${storeId}/orders/${orderId}/payments`, {
-        sourceId,
-      })
-    ).data,
+    idempotentRequest<Payment>('post', `/customer/stores/${storeId}/orders/${orderId}/payments`, {
+      sourceId,
+    }),
 };
 ````
 
@@ -7004,6 +7046,7 @@ export function ProductsPage() {
           options={[
             { value: '', label: 'Todos los estados' },
             { value: 'ACTIVE', label: 'Activos' },
+            { value: 'INACTIVE', label: 'Inactivos' },
             { value: 'DRAFT', label: 'Borradores' },
             { value: 'ARCHIVED', label: 'Archivados' },
           ]}
@@ -7075,6 +7118,7 @@ export function ProductsPage() {
                       >
                         <option value="DRAFT">Borrador</option>
                         <option value="ACTIVE">Activo</option>
+                        <option value="INACTIVE">Inactivo</option>
                         <option value="ARCHIVED">Archivado</option>
                       </select>
                     </div>
@@ -7134,7 +7178,10 @@ export function ProductForm({ storeId, product, onSaved }: ProductFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const errors = {
     name: !name.trim() ? 'Ingresa el nombre del producto.' : '',
-    price: !isMoney(price) ? 'Ingresa un precio no negativo con hasta dos decimales.' : '',
+    price:
+      !isMoney(price) || Number(price) < 0.01 || Number(price) > 100000
+        ? 'Ingresa un precio entre 0.01 y 100000.00 con hasta dos decimales.'
+        : '',
     image:
       imageUrl && !isHttpUrl(imageUrl) ? 'Ingresa una URL que empiece con https:// o http://.' : '',
   };
@@ -7274,7 +7321,7 @@ export const productService = {
 
 ````typescript
 /** Estados de visibilidad aceptados por el backend. */
-export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 /** Producto administrativo con información de publicación e impuestos. */
 export interface Product {
   id: string;
@@ -8651,6 +8698,16 @@ export class UserFacingError extends Error {}
 
 /** Traducciones estables por código; no se muestran mensajes técnicos del servidor. */
 const messages: Record<string, string> = {
+  PRODUCT_DUPLICATE: 'Ya existe un producto con ese nombre en esta tienda.',
+  STORE_DUPLICATE: 'Ya tienes una tienda con ese nombre.',
+  IDEMPOTENCY_REQUIRED: 'Falta la clave de la operación. Actualiza la página.',
+  IDEMPOTENCY_CONFLICT: 'La clave de esta operación corresponde a otros datos.',
+  OPERATION_IN_PROGRESS: 'La operación sigue en proceso. Espera antes de reintentar.',
+  OPERATION_UNCERTAIN: 'El resultado del pago o devolución requiere revisión. No repitas el cobro.',
+  CONCURRENT_UPDATE: 'Otra solicitud está cambiando estos datos. Actualiza la información.',
+  QUANTITY_LIMIT: 'La cantidad máxima por producto es 10000.',
+  PRICE_LIMIT: 'El importe supera el límite permitido para un cobro.',
+
   BAD_CREDENTIALS: 'El correo o la contraseña son incorrectos.',
   USER_EMAIL_EXIST: 'Este correo ya está registrado.',
   UNAUTHORIZED: 'Inicia sesión para continuar.',
@@ -8678,7 +8735,8 @@ const messages: Record<string, string> = {
   PAYMENT_REFUND_REJECTED: 'No se pudo procesar la devolución. Contacta al administrador.',
   PAYMENT_GATEWAY_INVALID_REQUEST:
     'La pasarela no aceptó los datos del pago. Genera un nuevo token e inténtalo nuevamente.',
-  PAYMENT_GATEWAY_UNAVAILABLE: 'La pasarela de pagos no está disponible. Inténtalo más tarde.',
+  PAYMENT_GATEWAY_UNAVAILABLE:
+    'No se confirmó el resultado de la pasarela. Consulta la orden antes de repetir el pago.',
   VALIDATION_ERROR: 'Revisa los campos del formulario.',
   INVALID_REQUEST: 'Los datos enviados no son válidos.',
   INVALID_PARAMETER_TYPE: 'Revisa los filtros o identificadores enviados.',
@@ -8720,6 +8778,7 @@ export const dateTime = (value: string): string =>
 /** Traduce estados internos sin alterar sus valores de transporte. */
 export const labels: Record<string, string> = {
   ACTIVE: 'Activo',
+  INACTIVE: 'Inactivo',
   DRAFT: 'Borrador',
   ARCHIVED: 'Archivado',
   PENDING: 'Pendiente',
@@ -8901,6 +8960,7 @@ if __name__ == "__main__":
  * Ejecutar: node tools/verify-api.mjs --disposable
  */
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 if (!process.argv.includes('--disposable')) {
   throw new Error('Esta prueba crea datos. Usa --disposable únicamente con una base desechable.');
@@ -8919,6 +8979,10 @@ async function request(path, { method = 'GET', body, token, expected = 200 } = {
     headers: {
       ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(['POST', 'PATCH'].includes(method) &&
+      /\/orders(?:\/[^/]+\/(?:payments|cancel|status))?$/.test(path)
+        ? { 'Idempotency-Key': randomUUID() }
+        : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -9040,7 +9104,7 @@ await request(`/stores/${store.id}/products/${product.id}/offers`, {
   token: owner.token,
   expected: 201,
   body: {
-    offerPrice: 20,
+    discountPercentage: 22.78,
     startsAt: new Date(Date.now() - 60000).toISOString(),
     endsAt: new Date(Date.now() + 86400000).toISOString(),
   },
@@ -9152,7 +9216,11 @@ await request(`/stores/${store.id}/products/${product.id}/offers`, {
   method: 'POST',
   token: owner.token,
   expected: 400,
-  body: { offerPrice: 10, startsAt: '2026-11-20T10:00:00Z', endsAt: '2026-11-19T10:00:00Z' },
+  body: {
+    discountPercentage: 10,
+    startsAt: '2026-11-20T10:00:00Z',
+    endsAt: '2026-11-19T10:00:00Z',
+  },
 });
 const emptyCategory = await request(`/stores/${store.id}/categories`, {
   method: 'POST',
@@ -9262,6 +9330,7 @@ console.log(
  * Crea cuentas, tiendas, productos y órdenes sintéticas. No elimina esos datos.
  */
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 if (!process.argv.includes('--disposable'))
   throw new Error('Usa --disposable con una base de pruebas.');
@@ -9276,6 +9345,10 @@ async function request(path, { token, method = 'GET', body, status = 200 } = {})
     method,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(['POST', 'PATCH'].includes(method) &&
+      /\/orders(?:\/[^/]+\/(?:payments|cancel|status))?$/.test(path)
+        ? { 'Idempotency-Key': randomUUID() }
+        : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -9449,7 +9522,7 @@ const attempts = await Promise.all(
   [1, 2].map(() =>
     fetch(`${base}/customer/orders/${concurrent.id}/cancel`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${customer}` },
+      headers: { Authorization: `Bearer ${customer}`, 'Idempotency-Key': randomUUID() },
     }),
   ),
 );
@@ -9923,7 +9996,7 @@ COMMIT;
 ### scripts/db/01_datos_demo.sql
 
 ````sql
--- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V5.
+-- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V8.
 -- Ejecutar primero 00_compatibilidad_historial.sql y después este archivo completo.
 -- Esta carga no crea/elimina tablas ni modifica datos existentes.
 -- Contraseña de TODAS las cuentas demo: BodekoDemo2026!
@@ -9933,10 +10006,12 @@ BEGIN;
 
 DO $$
 BEGIN
-    IF to_regclass('public.order_status_history') IS NULL
+    IF to_regclass('public.api_idempotency') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='product_offers' AND column_name='discount_percentage')
+       OR to_regclass('public.order_status_history') IS NULL
        OR NOT EXISTS (SELECT 1 FROM information_schema.columns
                       WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'document_number') THEN
-        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V5.';
+        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V8.';
     END IF;
 END $$;
 
@@ -10013,8 +10088,11 @@ FROM (VALUES
 ON CONFLICT (product_id) DO NOTHING;
 
 -- Se insertan solo si el producto aún no tiene ofertas: repetir no crea solapamientos.
-INSERT INTO product_offers (store_id, product_id, offer_price, starts_at, ends_at)
-SELECT p.store_id, p.id, offers.price, now() + offers.starts_offset, now() + offers.ends_offset
+INSERT INTO product_offers (store_id, product_id, offer_price, starts_at, ends_at, discount_percentage)
+SELECT p.store_id, p.id, offers.price, now() + offers.starts_offset, now() + offers.ends_offset,
+       CASE WHEN p.base_price>0 AND round(100*(1-offers.price/p.base_price),2) BETWEEN 0 AND 99.99
+          AND round(p.base_price*(1-round(100*(1-offers.price/p.base_price),2)/100),2)=offers.price
+       THEN round(100*(1-offers.price/p.base_price),2) ELSE NULL END
 FROM (VALUES
 ('b0de3000-0000-4000-8000-000000000001'::uuid, 19.90, interval '-1 day', interval '30 days'),
 ('b0de3000-0000-4000-8000-000000000005'::uuid, 14.00, interval '-10 days', interval '-1 day'),
@@ -10149,7 +10227,7 @@ Estos scripts cargan **datos ficticios en una base de desarrollo** para probar e
 ## Orden de ejecución
 
 1. Crea/selecciona tu base de desarrollo en PostgreSQL.
-2. Configura el backend para conectarse a esa base y arráncalo una vez. Flyway debe aplicar **V1–V5**. No ejecutes manualmente los archivos de migración si ya usas Flyway.
+2. Configura el backend para conectarse a esa base y arráncalo una vez. Flyway debe aplicar **V1-V8**. No ejecutes manualmente los archivos de migración si ya usas Flyway.
 3. Ejecuta `00_compatibilidad_historial.sql` para alinear el historial antiguo con los nombres que espera este backend.
 4. Ejecuta `01_datos_demo.sql` completo.
 5. Ejecuta `02_consultas_verificacion.sql` para inspeccionar los registros.
@@ -10169,7 +10247,7 @@ En pgAdmin selecciona la **misma base que usa el backend**, abre **Query Tool** 
 
 Desde la raíz `bodeko-core-api-v2`, reemplaza el nombre de base/usuario si son distintos:
 
-El backend debe usar la misma base que indiques en `-Database`. La configuración local actual apunta a `db_bodekos_v2`. Cargar el demo en `db_bodekos` no lo hace visible en el backend conectado a `db_bodekos_v2`: son bases distintas. El ejecutor avisa si el nombre no coincide con el declarado en `application.properties`; si arrancas Spring con variables de entorno, comprueba su valor efectivo.
+El backend debe usar la misma base que indiques en `-Database`. El nombre efectivo se obtiene de DB_URL o de las variables estándar de Spring. Cargar el demo en `db_bodekos` no lo hace visible en el backend conectado a `db_bodekos_v2`: son bases distintas. El ejecutor avisa si el nombre no coincide con el declarado en `application.properties`; si arrancas Spring con variables de entorno, comprueba su valor efectivo.
 
 ```powershell
 .\scripts\db\ejecutar-demo.ps1 -Database db_bodekos_v2 -DbUser postgres
@@ -10337,4 +10415,893 @@ finally {
     [Console]::OutputEncoding = $previousConsoleEncoding
 }
 Write-Host 'Scripts completados. Revisa scripts/db/README.md para las cuentas y los escenarios.'
+````
+
+### frontend/src/config/idempotency.test.ts
+
+````typescript
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/config', () => ({ api: { request: vi.fn() } }));
+import { api } from '@/config';
+import { idempotentRequest } from './idempotency';
+
+/** Comprueba reintentos y separación de compras, no solo la forma de la petición. */
+describe('Claves de operaciones', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  it('reutiliza la clave después de perder la respuesta de red', async () => {
+    vi.mocked(api.request)
+      .mockRejectedValueOnce(new Error('red'))
+      .mockResolvedValueOnce({ data: { id: 'orden' } });
+    await expect(idempotentRequest('post', '/qa/retry', {})).rejects.toThrow();
+    await idempotentRequest('post', '/qa/retry', {});
+    expect(vi.mocked(api.request).mock.calls[0]?.[0].headers).toEqual(
+      vi.mocked(api.request).mock.calls[1]?.[0].headers,
+    );
+  });
+  it('una compra nueva con otro carrito recibe otra clave', async () => {
+    vi.mocked(api.request).mockResolvedValue({ data: {} });
+    await idempotentRequest('post', '/qa/cart', {}, 'cart-one');
+    await idempotentRequest('post', '/qa/cart', {}, 'cart-two');
+    expect(vi.mocked(api.request).mock.calls[0]?.[0].headers).not.toEqual(
+      vi.mocked(api.request).mock.calls[1]?.[0].headers,
+    );
+  });
+  it('permite otra clave tras un rechazo definitivo de datos', async () => {
+    vi.mocked(api.request)
+      .mockRejectedValueOnce({ response: { status: 400, data: { code: 'VALIDATION_ERROR' } } })
+      .mockResolvedValueOnce({ data: {} });
+    await expect(idempotentRequest('post', '/qa/invalid', {})).rejects.toBeDefined();
+    await idempotentRequest('post', '/qa/invalid', {});
+    expect(vi.mocked(api.request).mock.calls[0]?.[0].headers).not.toEqual(
+      vi.mocked(api.request).mock.calls[1]?.[0].headers,
+    );
+  });
+  it('conserva la clave cuando el pago requiere revisión', async () => {
+    vi.mocked(api.request)
+      .mockRejectedValueOnce({ response: { status: 409, data: { code: 'OPERATION_UNCERTAIN' } } })
+      .mockResolvedValueOnce({ data: {} });
+    await expect(idempotentRequest('post', '/qa/uncertain', {})).rejects.toBeDefined();
+    await idempotentRequest('post', '/qa/uncertain', {});
+    expect(vi.mocked(api.request).mock.calls[0]?.[0].headers).toEqual(
+      vi.mocked(api.request).mock.calls[1]?.[0].headers,
+    );
+  });
+});
+````
+
+### frontend/src/config/idempotency.ts
+
+````typescript
+import { api } from '@/config';
+
+/** Mantiene solo huellas y claves opacas en la pestaña, nunca el cuerpo con el token. */
+const keys = new Map<string, string>();
+/** Algunos navegadores restringen el almacenamiento; se conserva al menos la clave en memoria. */
+function stored(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function save(key: string, value: string | null): void {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* La solicitud conserva su clave en memoria. */
+  }
+}
+/** Una petición repetida conserva la clave tras timeout; un 4xx definitivo permite un intento nuevo. */
+export async function idempotentRequest<T>(
+  method: 'post' | 'patch',
+  path: string,
+  body: unknown,
+  context = '',
+): Promise<T> {
+  const bytes = new TextEncoder().encode(JSON.stringify([method, path, body, context]));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const identity = `bodeko:request:${Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('')}`;
+  let key = keys.get(identity) || stored(identity);
+  if (!key) {
+    key = crypto.randomUUID();
+    keys.set(identity, key);
+    save(identity, key);
+  }
+  try {
+    return (
+      await api.request<T>({ method, url: path, data: body, headers: { 'Idempotency-Key': key } })
+    ).data;
+  } catch (cause: unknown) {
+    const error = cause as { response?: { status: number; data?: { code?: string } } };
+    const code = error.response?.data?.code;
+    if (
+      error.response &&
+      error.response.status < 500 &&
+      !['OPERATION_IN_PROGRESS', 'OPERATION_UNCERTAIN', 'CONCURRENT_UPDATE'].includes(code || '')
+    ) {
+      keys.delete(identity);
+      save(identity, null);
+    }
+    throw cause;
+  }
+}
+````
+
+### scripts/db/03_prevalidar_mejoras.sql
+
+````sql
+-- Solo lectura. Ejecutar antes de desplegar V6 y resolver resultados con el equipo.
+SELECT lower(btrim(email)) AS correo, count(*) FROM users GROUP BY 1 HAVING count(*)>1;
+SELECT lower(btrim(subdomain)) AS subdominio, count(*) FROM stores GROUP BY 1 HAVING count(*)>1;
+SELECT owner_id,lower(regexp_replace(btrim(name), '\s+', ' ', 'g')) AS nombre,count(*) FROM stores GROUP BY 1,2 HAVING count(*)>1;
+SELECT store_id,lower(regexp_replace(btrim(name), '\s+', ' ', 'g')) AS nombre,count(*) FROM products GROUP BY 1,2 HAVING count(*)>1;
+SELECT store_id,lower(regexp_replace(btrim(name), '\s+', ' ', 'g')) AS nombre,count(*) FROM categories GROUP BY 1,2 HAVING count(*)>1;
+SELECT order_id,count(*) FROM payments WHERE status='APPROVED' GROUP BY 1 HAVING count(*)>1;
+````
+
+### scripts/qa/culqi-pruebas.py
+
+````python
+"""Simulador de QA aislado: cuenta llamadas y permite simular una respuesta perdida."""
+from pathlib import Path
+from http.server import ThreadingHTTPServer
+import importlib.util,io,json,sys,threading
+
+if '--disposable' not in sys.argv: raise SystemExit('Usar --disposable solo para pruebas locales.')
+path=Path(__file__).resolve().parents[1]/'culqi-mock/server.py'
+spec=importlib.util.spec_from_file_location('mock',path);mock=importlib.util.module_from_spec(spec);spec.loader.exec_module(mock)
+mock.log=lambda message: None
+counts={'charges':0,'refunds':0}
+guard=threading.Lock()
+class Handler(mock.Handler):
+    def do_GET(self):
+        if self.path!='/qa/stats': return self.reply(404,{})
+        with guard: result=dict(counts)
+        result['approvedCharges']=len(mock.CHARGES)
+        result['refundedCharges']=sum(1 for charge in mock.CHARGES.values() if charge['refunded']>0)
+        self.reply(200,result)
+    def do_POST(self):
+        raw=self.rfile.read(int(self.headers.get('Content-Length','0')))
+        try: body=json.loads(raw)
+        except ValueError: return self.reply(400,{})
+        with guard:
+            if self.path=='/v2/charges': counts['charges']+=1
+            if self.path=='/v2/refunds': counts['refunds']+=1
+        if self.path=='/v2/charges' and body.get('source_id')=='tkn_qa_uncertain':
+            # El proveedor simulado cobra, pero el backend no recibe una confirmación utilizable.
+            body['source_id']=mock.OK_TOKEN
+            mock.create_charge(body)
+            return self.reply(503,{'object':'error','type':'api_error','user_message':'Respuesta perdida en QA'})
+        self.rfile=io.BytesIO(raw)
+        super().do_POST()
+print('Simulador QA en 127.0.0.1:8210; no usa dinero ni servicios externos.',flush=True)
+ThreadingHTTPServer(('127.0.0.1',8210),Handler).serve_forever()
+````
+
+### scripts/qa/verificar-validaciones.mjs
+
+````javascript
+/** Prueba de API con datos sintéticos. Exige una base local vacía y un simulador QA dedicado. */
+
+import assert from 'node:assert/strict';
+
+import { randomUUID } from 'node:crypto';
+
+if (!process.argv.includes('--disposable') || !process.env.QA_API_URL || !process.env.QA_MOCK_URL)
+  throw new Error('Configura QA_API_URL y QA_MOCK_URL y usa --disposable.');
+
+const base = process.env.QA_API_URL.replace(/\/$/, '');
+
+const mock = process.env.QA_MOCK_URL.replace(/\/$/, '');
+
+for (const address of [base, mock])
+  if (!['127.0.0.1', 'localhost'].includes(new URL(address).hostname))
+    throw new Error('Solo se admiten servidores locales de QA.');
+
+let checks = 0;
+
+async function raw(path, { method = 'GET', token, body, key, expected } = {}) {
+  const headers = {
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (
+    key !== null &&
+    ['POST', 'PATCH'].includes(method) &&
+    /\/orders(?:\/[^/]+\/(?:payments|cancel|status))?$/.test(path)
+  )
+    headers['Idempotency-Key'] = key || randomUUID();
+
+  const response = await fetch(base + path, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const data = response.status === 204 ? null : await response.json();
+
+  if (expected !== undefined)
+    assert.ok(
+      (Array.isArray(expected) ? expected : [expected]).includes(response.status),
+      `${method} ${path}: ${response.status} ${JSON.stringify(data)}`,
+    );
+  else assert.ok(response.status < 500, `${method} ${path}: error inesperado ${response.status}`);
+
+  checks++;
+
+  return { status: response.status, data };
+}
+
+async function api(path, options = {}) {
+  return (await raw(path, options)).data;
+}
+
+const stats = async () => {
+  const response = await fetch(mock + '/qa/stats');
+  assert.equal(response.status, 200);
+  return response.json();
+};
+
+assert.deepEqual(
+  await api('/public/stores', { expected: 200 }),
+  [],
+  'La base de QA debe estar vacía; no continuar con una base de trabajo.',
+);
+
+assert.equal(
+  (await stats()).charges,
+  0,
+  'Reinicia únicamente el simulador de QA antes de esta prueba.',
+);
+
+const password = 'BodekoPruebas2026!';
+
+const signup = (email, name = 'Cliente QA') => ({
+  email,
+  password,
+  fullName: name,
+  phoneNumber: '+51999999111',
+});
+
+const owner = await api('/auth/register-owner', {
+  method: 'POST',
+  body: signup('owner.validation@example.test', 'Propietario QA'),
+  expected: 201,
+});
+
+const a = await api('/auth/register-customer', {
+  method: 'POST',
+  body: signup('a.validation@example.test'),
+  expected: 201,
+});
+
+const b = await api('/auth/register-customer', {
+  method: 'POST',
+  body: signup('b.validation@example.test'),
+  expected: 201,
+});
+
+await api('/auth/register-customer', {
+  method: 'POST',
+  body: signup('A.Validation@EXAMPLE.test'),
+  expected: 409,
+});
+
+const emailRace = await Promise.all(
+  [1, 2].map(() =>
+    raw('/auth/register-customer', {
+      method: 'POST',
+      body: signup('race.validation@example.test'),
+    }),
+  ),
+);
+
+assert.deepEqual(emailRace.map((x) => x.status).sort(), [201, 409]);
+
+for (const invalid of ['x'.repeat(73), 'á'.repeat(37)])
+  await api('/auth/register-customer', {
+    method: 'POST',
+    body: { ...signup('invalid@example.test'), password: invalid },
+    expected: 400,
+  });
+
+await api('/auth/register-customer', {
+  method: 'POST',
+  body: signup('not-an-email'),
+  expected: 400,
+});
+
+const storeBody = {
+  name: 'Mercado Validaciones',
+  taxId: '20987654001',
+  legalName: 'Empresa QA Ficticia',
+  subdomain: 'qa-validaciones',
+};
+
+const store = await api('/stores', {
+  method: 'POST',
+  token: owner.token,
+  body: storeBody,
+  expected: 201,
+});
+
+await api('/stores', {
+  method: 'POST',
+  token: owner.token,
+  body: { ...storeBody, name: 'Otra tienda', subdomain: 'otro' },
+  expected: 409,
+});
+
+await api('/stores', {
+  method: 'POST',
+  token: owner.token,
+  body: { ...storeBody, name: 'Otra tienda', taxId: '20987654002', subdomain: 'QA-VALIDACIONES' },
+  expected: 409,
+});
+
+await api('/stores', {
+  method: 'POST',
+  token: owner.token,
+  body: {
+    ...storeBody,
+    name: '  MERCADO    VALIDACIONES  ',
+    taxId: '20987654003',
+    subdomain: 'qa-doble',
+  },
+  expected: 409,
+});
+
+const storeRace = await Promise.all(
+  [4, 5].map((n) =>
+    raw('/stores', {
+      method: 'POST',
+      token: owner.token,
+      body: {
+        ...storeBody,
+        name: 'Tienda simultánea',
+        taxId: `2098765400${n}`,
+        subdomain: `qa-race-${n}`,
+      },
+    }),
+  ),
+);
+
+assert.deepEqual(storeRace.map((x) => x.status).sort(), [201, 409]);
+
+const store2 = await api('/stores', {
+  method: 'POST',
+  token: owner.token,
+  body: { ...storeBody, name: 'Otra sucursal', taxId: '20987654006', subdomain: 'qa-sucursal' },
+  expected: 201,
+});
+
+const adminPath = `/stores/${store.id}`;
+
+const customerPath = `/customer/stores/${store.id}`;
+
+const productBody = (name, price = 20) => ({
+  name,
+  basePrice: price,
+  description: 'Ejemplo sintético',
+  taxExempt: false,
+});
+
+async function product(name, stock = 10, price = 20) {
+  const p = await api(adminPath + '/products', {
+    method: 'POST',
+    token: owner.token,
+    body: productBody(name, price),
+    expected: 201,
+  });
+
+  await api(`${adminPath}/products/${p.id}/inventory/quantity`, {
+    method: 'PATCH',
+    token: owner.token,
+    body: { quantity: stock },
+    expected: 200,
+  });
+
+  await api(`${adminPath}/products/${p.id}/status`, {
+    method: 'PATCH',
+    token: owner.token,
+    body: { status: 'ACTIVE' },
+    expected: 200,
+  });
+
+  return p;
+}
+
+const p = await product('Café para validación');
+await api(`${adminPath}/products/${p.id}/status`, { method: 'PATCH', token: owner.token, body: { status: 0 }, expected: 400 });
+await api(customerPath + '/cart/items', { method: 'POST', token: a.token, body: { productId: p.id, quantity: 1.5 }, expected: 400 });
+
+await api(adminPath + '/products', {
+  method: 'POST',
+  token: owner.token,
+  body: productBody(' CAFÉ   PARA VALIDACIÓN '),
+  expected: 409,
+});
+
+const productRace = await Promise.all(
+  [1, 2].map(() =>
+    raw(adminPath + '/products', {
+      method: 'POST',
+      token: owner.token,
+      body: productBody('Producto simultáneo'),
+    }),
+  ),
+);
+
+assert.deepEqual(productRace.map((x) => x.status).sort(), [201, 409]);
+
+await api(`/stores/${store2.id}/products`, {
+  method: 'POST',
+  token: owner.token,
+  body: productBody('Café para validación'),
+  expected: 201,
+});
+
+for (const price of [-1, 0, 100000.01, 2.123])
+  await api(adminPath + '/products', {
+    method: 'POST',
+    token: owner.token,
+    body: productBody(`Precio ${price}`, price),
+    expected: 400,
+  });
+
+await api(adminPath + '/products', {
+  method: 'POST',
+  token: owner.token,
+  body: { basePrice: 10 },
+  expected: 400,
+});
+
+await api(adminPath + '/products/no-es-uuid', { token: owner.token, expected: 400 });
+
+await api(adminPath + '/products', { token: a.token, expected: 403 });
+
+const q = await product('Otro producto para editar');
+
+await api(`${adminPath}/products/${q.id}`, {
+  method: 'PUT',
+  token: owner.token,
+  body: productBody('CAFÉ PARA VALIDACIÓN'),
+  expected: 409,
+});
+
+await api(`${adminPath}/products/${p.id}/status`, {
+  method: 'PATCH',
+  token: owner.token,
+  body: { status: 'INACTIVE' },
+  expected: 200,
+});
+
+await api(`/public/stores/${store.id}/products/${p.id}`, { expected: 404 });
+
+await api(customerPath + '/cart/items', {
+  method: 'POST',
+  token: a.token,
+  body: { productId: p.id, quantity: 1 },
+  expected: 409,
+});
+
+await api(`${adminPath}/products/${p.id}/status`, {
+  method: 'PATCH',
+  token: owner.token,
+  body: { status: 'ACTIVE' },
+  expected: 200,
+});
+
+await addEarly();
+
+async function addEarly() {
+  await api(customerPath + '/cart/items', {
+    method: 'POST',
+    token: a.token,
+    body: { productId: p.id, quantity: 1 },
+    expected: 200,
+  });
+
+  await api(`${adminPath}/products/${p.id}/status`, {
+    method: 'PATCH',
+    token: owner.token,
+    body: { status: 'INACTIVE' },
+    expected: 200,
+  });
+
+  await api(customerPath + '/orders', {
+    method: 'POST',
+    token: a.token,
+    body: { invoiceType: 'RECEIPT', documentType: 'DNI', documentNumber: '12345678' },
+    expected: 409,
+  });
+
+  await api(`${customerPath}/cart/items/${p.id}`, {
+    method: 'DELETE',
+    token: a.token,
+    expected: 200,
+  });
+
+  await api(`${adminPath}/products/${p.id}/status`, {
+    method: 'PATCH',
+    token: owner.token,
+    body: { status: 'ACTIVE' },
+    expected: 200,
+  });
+}
+
+await api(`${adminPath}/products/${p.id}/inventory/quantity`, {
+  method: 'PATCH',
+  token: owner.token,
+  body: { quantity: 1000001 },
+  expected: 400,
+});
+
+await api(adminPath + '/products', {
+  method: 'POST',
+  token: owner.token,
+  body: { ...productBody('Imagen inválida'), imageUrl: 'javascript:alert(1)' },
+  expected: 400,
+});
+
+await api(adminPath + '/products', {
+  method: 'POST',
+  token: owner.token,
+  body: productBody('Nulo\u0000no permitido'),
+  expected: 400,
+});
+
+const categoryBody = { name: 'Categoría QA' };
+
+await api(adminPath + '/categories', {
+  method: 'POST',
+  token: owner.token,
+  body: categoryBody,
+  expected: 201,
+});
+
+await api(adminPath + '/categories', {
+  method: 'POST',
+  token: owner.token,
+  body: { name: ' CATEGORÍA   QA ' },
+  expected: 409,
+});
+
+const categoryRace = await Promise.all(
+  [1, 2].map(() =>
+    raw(adminPath + '/categories', {
+      method: 'POST',
+      token: owner.token,
+      body: { name: 'Categoría simultánea' },
+    }),
+  ),
+);
+
+assert.deepEqual(categoryRace.map((x) => x.status).sort(), [201, 409]);
+
+const offerPath = `${adminPath}/products/${p.id}/offers`;
+
+const dates = {
+  startsAt: new Date(Date.now() - 60000).toISOString(),
+  endsAt: new Date(Date.now() + 86400000).toISOString(),
+};
+
+for (const discountPercentage of [-1, 0, 100, 12.123])
+  await api(offerPath, {
+    method: 'POST',
+    token: owner.token,
+    body: { ...dates, discountPercentage },
+    expected: 400,
+  });
+
+await api(offerPath, {
+  method: 'POST',
+  token: owner.token,
+  body: { ...dates, offerPrice: 10 },
+  expected: 400,
+});
+
+await api(offerPath, {
+  method: 'POST',
+  token: owner.token,
+  body: { startsAt: dates.endsAt, endsAt: dates.startsAt, discountPercentage: 25 },
+  expected: 400,
+});
+
+const offer = await api(offerPath, {
+  method: 'POST',
+  token: owner.token,
+  body: { ...dates, discountPercentage: 25 },
+  expected: 201,
+});
+
+assert.equal(offer.offerPrice, 15);
+assert.equal(offer.discountPercentage, 25);
+
+await api(`${adminPath}/products/${p.id}`, {
+  method: 'PUT',
+  token: owner.token,
+  body: productBody('Café para validación', 40),
+  expected: 200,
+});
+
+assert.equal((await api(offerPath, { token: owner.token, expected: 200 }))[0].offerPrice, 30);
+
+const offerRace = await Promise.all(
+  [1, 2].map(() =>
+    raw(`${adminPath}/products/${q.id}/offers`, {
+      method: 'POST',
+      token: owner.token,
+      body: { ...dates, discountPercentage: 10 },
+    }),
+  ),
+);
+
+assert.deepEqual(offerRace.map((x) => x.status).sort(), [201, 409]);
+
+const fiscal = { invoiceType: 'RECEIPT', documentType: 'DNI', documentNumber: '12345678' };
+
+const add = (user, prod, quantity = 1) =>
+  api(customerPath + '/cart/items', {
+    method: 'POST',
+    token: user.token,
+    body: { productId: prod.id, quantity },
+    expected: 200,
+  });
+
+const checkout = (user, key = randomUUID()) =>
+  raw(customerPath + '/orders', { method: 'POST', token: user.token, body: fiscal, key });
+
+const scarce = await product('Última unidad', 1, 10);
+
+await add(a, scarce);
+await add(b, scarce);
+
+const raceKeys = [randomUUID(), randomUUID()];
+
+const stockRace = await Promise.all([checkout(a, raceKeys[0]), checkout(b, raceKeys[1])]);
+
+assert.deepEqual(stockRace.map((x) => x.status).sort(), [201, 409]);
+
+assert.equal(
+  (await api(`${adminPath}/products/${scarce.id}/inventory`, { token: owner.token })).quantity,
+  0,
+);
+
+const winnerIndex = stockRace.findIndex((x) => x.status === 201);
+const winner = [a, b][winnerIndex];
+const loser = [a, b][1 - winnerIndex];
+const order = stockRace[winnerIndex].data;
+
+const replay = await checkout(winner, raceKeys[winnerIndex]);
+assert.equal(replay.status, 201);
+assert.equal(replay.data.id, order.id);
+
+await api(customerPath + '/orders', {
+  method: 'POST',
+  token: winner.token,
+  key: raceKeys[winnerIndex],
+  body: { ...fiscal, documentNumber: '87654321' },
+  expected: 409,
+});
+
+await api(customerPath + '/orders', {
+  method: 'POST',
+  token: loser.token,
+  key: null,
+  body: fiscal,
+  expected: 400,
+});
+
+await api(`/customer/orders/${order.id}`, { token: loser.token, expected: 404 });
+
+const paymentPath = `${customerPath}/orders/${order.id}/payments`;
+const payKey = randomUUID();
+const beforePay = await stats();
+
+const payRace = await Promise.all(
+  [1, 2].map(() =>
+    raw(paymentPath, {
+      method: 'POST',
+      token: winner.token,
+      key: payKey,
+      body: { sourceId: 'tkn_test_ok' },
+      expected: [201, 409],
+    }),
+  ),
+);
+
+assert.ok(payRace.some((x) => x.status === 201));
+
+const paid = await api(paymentPath, {
+  method: 'POST',
+  token: winner.token,
+  key: payKey,
+  body: { sourceId: 'tkn_test_ok' },
+  expected: 201,
+});
+
+assert.equal((await stats()).charges, beforePay.charges + 1, 'Debe existir un solo cobro externo.');
+
+await api(paymentPath, {
+  method: 'POST',
+  token: winner.token,
+  body: { sourceId: 'tkn_test_ok' },
+  expected: 409,
+});
+
+const cancelKey = randomUUID();
+const beforeCancel = await stats();
+
+const cancelRace = await Promise.all(
+  [1, 2].map(() =>
+    raw(`/customer/orders/${order.id}/cancel`, {
+      method: 'POST',
+      token: winner.token,
+      key: cancelKey,
+      expected: [200, 409],
+    }),
+  ),
+);
+
+assert.ok(cancelRace.some((x) => x.status === 200));
+
+const cancelled = await api(`/customer/orders/${order.id}/cancel`, {
+  method: 'POST',
+  token: winner.token,
+  key: cancelKey,
+  expected: 200,
+});
+
+assert.equal(cancelled.order.status, 'CANCELLED');
+
+assert.equal(
+  (await stats()).refunds,
+  beforeCancel.refunds + 1,
+  'Debe solicitarse una sola devolución.',
+);
+
+assert.equal(
+  (await api(`${adminPath}/products/${scarce.id}/inventory`, { token: owner.token })).quantity,
+  1,
+);
+
+await api(`/customer/orders/${order.id}/cancel`, {
+  method: 'POST',
+  token: winner.token,
+  expected: 409,
+});
+
+// Vaciar el carrito del perdedor antes de la siguiente compra.
+
+await api(`${customerPath}/cart/items/${scarce.id}`, {
+  method: 'DELETE',
+  token: loser.token,
+  expected: 200,
+});
+
+const plentiful = await product('Carrito concurrente', 100, 10);
+
+await Promise.all(Array.from({ length: 5 }, () => add(a, plentiful)));
+
+let cart = await api(customerPath + '/cart', { token: a.token });
+assert.equal(cart.items.find((x) => x.productId === plentiful.id).quantity, 5);
+
+await api(customerPath + '/cart/items', {
+  method: 'POST',
+  token: a.token,
+  body: { productId: plentiful.id, quantity: 10000 },
+  expected: 400,
+});
+
+const sameKey = randomUUID();
+const checkoutRace = await Promise.all(Array.from({ length: 4 }, () => checkout(a, sameKey)));
+
+assert.ok(checkoutRace.every((x) => [201, 409].includes(x.status)));
+assert.ok(checkoutRace.some((x) => x.status === 201));
+
+const order2 = await api(customerPath + '/orders', {
+  method: 'POST',
+  token: a.token,
+  key: sameKey,
+  body: fiscal,
+  expected: 201,
+});
+
+assert.equal(
+  (await api(`${adminPath}/products/${plentiful.id}/inventory`, { token: owner.token })).quantity,
+  95,
+);
+
+const declinePath = `${customerPath}/orders/${order2.id}/payments`;
+const declineKey = randomUUID();
+const beforeDecline = await stats();
+
+for (let i = 0; i < 2; i++)
+  await api(declinePath, {
+    method: 'POST',
+    token: a.token,
+    key: declineKey,
+    body: { sourceId: 'tkn_test_declined' },
+    expected: 402,
+  });
+
+assert.equal((await stats()).charges, beforeDecline.charges + 1);
+
+const distinctPayBefore = await stats();
+const distinctPay = await Promise.all([1, 2].map(() => raw(declinePath, { method: 'POST', token: a.token, body: { sourceId: 'tkn_test_ok' }, expected: [201, 409] })));
+assert.deepEqual(distinctPay.map((item) => item.status).sort(), [201, 409]);
+assert.equal((await stats()).charges, distinctPayBefore.charges + 1);
+const distinctCancelBefore = await stats();
+const distinctCancel = await Promise.all([1, 2].map(() => raw(`${adminPath}/orders/${order2.id}/status`, { method: 'PATCH', token: owner.token, body: { status: 'CANCELLED' }, expected: [200, 409] })));
+assert.deepEqual(distinctCancel.map((item) => item.status).sort(), [200, 409]);
+assert.equal((await stats()).refunds, distinctCancelBefore.refunds + 1);
+// La pasarela confirma internamente un cargo pero devuelve 503: no se puede cobrar otra vez.
+
+await add(b, plentiful);
+
+const uncertainOrder = (await checkout(b)).data;
+const uncertainPath = `${customerPath}/orders/${uncertainOrder.id}/payments`;
+const uncertainKey = randomUUID();
+const beforeUncertain = await stats();
+
+await api(uncertainPath, {
+  method: 'POST',
+  token: b.token,
+  key: uncertainKey,
+  body: { sourceId: 'tkn_qa_uncertain' },
+  expected: 502,
+});
+
+for (const key of [uncertainKey, randomUUID()]) {
+  const blocked = await api(uncertainPath, {
+    method: 'POST',
+    token: b.token,
+    key,
+    body: { sourceId: 'tkn_qa_uncertain' },
+    expected: 409,
+  });
+
+  assert.equal(blocked.code, 'OPERATION_UNCERTAIN');
+}
+
+assert.equal((await stats()).charges, beforeUncertain.charges + 1);
+
+await api(`/customer/orders/${uncertainOrder.id}/cancel`, {
+  method: 'POST',
+  token: b.token,
+  expected: 409,
+});
+
+assert.equal(
+  (await api(`/customer/orders/${uncertainOrder.id}`, { token: b.token })).order.status,
+  'PENDING',
+);
+
+console.log(
+  JSON.stringify(
+    {
+      resultado: 'correcto',
+      peticionesVerificadas: checks,
+      casos: [
+        'unicidad concurrente',
+        'porcentajes',
+        'INACTIVE',
+        'última unidad',
+        'carrito concurrente',
+        'checkout repetido',
+        'cobro y devolución únicos',
+        'pago rechazado repetido',
+        'resultado externo incierto',
+        'roles y privacidad',
+      ],
+    },
+    null,
+    2,
+  ),
+);
 ````

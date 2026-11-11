@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/config', () => ({
-  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: {
+    get: vi.fn(),
+    request: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 import { api } from '@/config';
 import { catalogService } from '@/features/catalog/services/catalogService';
@@ -12,6 +19,7 @@ import { inventoryService } from '@/features/inventory/services/inventoryService
 describe('Contratos de integración con Spring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.request).mockResolvedValue({ data: {} });
     for (const method of [api.get, api.post, api.patch])
       vi.mocked(method).mockResolvedValue({ data: {} });
   });
@@ -34,9 +42,14 @@ describe('Contratos de integración con Spring', () => {
   });
   it('no envía importes desde el navegador al cobrar una orden', async () => {
     await paymentService.pay('store', 'order', 'tkn_test_valid');
-    expect(api.post).toHaveBeenCalledWith('/customer/stores/store/orders/order/payments', {
-      sourceId: 'tkn_test_valid',
-    });
+    expect(api.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'post',
+        url: '/customer/stores/store/orders/order/payments',
+        data: { sourceId: 'tkn_test_valid' },
+        headers: { 'Idempotency-Key': expect.any(String) },
+      }),
+    );
   });
   it('recupera una orden por la ruta protegida del cliente', async () => {
     await checkoutService.get('store', 'order');

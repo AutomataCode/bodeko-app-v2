@@ -40,12 +40,15 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final OrderRepository orderRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final jakarta.persistence.EntityManager entityManager;
 
     @Override
     @Transactional
     public PaymentResponse pay(UUID userId, UUID storeId, UUID orderId, CreatePaymentRequest request) {
         Order order = orderRepository.findByIdAndStoreIdAndCustomerIdForUpdate(orderId, storeId, userId)
                 .orElseThrow(PaymentOrderNotFoundException::new);
+        // La comprobación previa del controlador pudo cargar una versión anterior.
+        entityManager.refresh(order);
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new PaymentOrderNotPendingException();
         }
@@ -91,7 +94,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void verifyAmount(BigDecimal amount) {
-        if (amount == null || amount.signum() <= 0) {
+        if (amount == null || amount.signum() <= 0 || amount.movePointRight(2).compareTo(BigDecimal.valueOf(Integer.MAX_VALUE)) > 0) {
             throw new PaymentInvalidAmountException();
         }
     }

@@ -9,6 +9,7 @@ export const dateTime = (value: string): string =>
 /** Traduce estados internos sin alterar sus valores de transporte. */
 export const labels: Record<string, string> = {
   ACTIVE: 'Activo',
+  INACTIVE: 'Inactivo',
   DRAFT: 'Borrador',
   ARCHIVED: 'Archivado',
   PENDING: 'Pendiente',

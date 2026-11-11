@@ -1,4 +1,4 @@
--- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V5.
+-- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V8.
 -- Ejecutar primero 00_compatibilidad_historial.sql y después este archivo completo.
 -- Esta carga no crea/elimina tablas ni modifica datos existentes.
 -- Contraseña de TODAS las cuentas demo: BodekoDemo2026!
@@ -8,10 +8,12 @@ BEGIN;
 
 DO $$
 BEGIN
-    IF to_regclass('public.order_status_history') IS NULL
+    IF to_regclass('public.api_idempotency') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='product_offers' AND column_name='discount_percentage')
+       OR to_regclass('public.order_status_history') IS NULL
        OR NOT EXISTS (SELECT 1 FROM information_schema.columns
                       WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'document_number') THEN
-        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V5.';
+        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V8.';
     END IF;
 END $$;
 
@@ -88,8 +90,11 @@ FROM (VALUES
 ON CONFLICT (product_id) DO NOTHING;
 
 -- Se insertan solo si el producto aún no tiene ofertas: repetir no crea solapamientos.
-INSERT INTO product_offers (store_id, product_id, offer_price, starts_at, ends_at)
-SELECT p.store_id, p.id, offers.price, now() + offers.starts_offset, now() + offers.ends_offset
+INSERT INTO product_offers (store_id, product_id, offer_price, starts_at, ends_at, discount_percentage)
+SELECT p.store_id, p.id, offers.price, now() + offers.starts_offset, now() + offers.ends_offset,
+       CASE WHEN p.base_price>0 AND round(100*(1-offers.price/p.base_price),2) BETWEEN 0 AND 99.99
+          AND round(p.base_price*(1-round(100*(1-offers.price/p.base_price),2)/100),2)=offers.price
+       THEN round(100*(1-offers.price/p.base_price),2) ELSE NULL END
 FROM (VALUES
 ('b0de3000-0000-4000-8000-000000000001'::uuid, 19.90, interval '-1 day', interval '30 days'),
 ('b0de3000-0000-4000-8000-000000000005'::uuid, 14.00, interval '-10 days', interval '-1 day'),

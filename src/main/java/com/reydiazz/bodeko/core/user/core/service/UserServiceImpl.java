@@ -68,7 +68,7 @@ public class UserServiceImpl implements UserService {
     }
 
     private String normalizeEmail(String email) {
-        return email.trim().toLowerCase();
+        return email.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private void validateEmailIsAvailable(String email) {

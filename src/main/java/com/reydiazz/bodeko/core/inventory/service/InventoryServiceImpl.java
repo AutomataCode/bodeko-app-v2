@@ -39,7 +39,8 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public InventoryResponse updateQuantity(UUID productId, UUID storeId, EditStockQuantityRequest request) {
-        Inventory inventory = findEntityByProduct(productId, storeId);
+        Inventory inventory = inventoryRepository.findByProductIdForUpdate(productId)
+            .filter(item -> item.getProduct().getStore().getId().equals(storeId)).orElseThrow(InventoryNotFoundException::new);
         inventory.updateQuantity(request.quantity());
         return inventoryMapper.toResponse(inventory);
     }
@@ -47,7 +48,8 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public InventoryResponse updateLowStockThreshold(UUID productId, UUID storeId, EditLowStockThresholdRequest request) {
-        Inventory inventory = findEntityByProduct(productId, storeId);
+        Inventory inventory = inventoryRepository.findByProductIdForUpdate(productId)
+            .filter(item -> item.getProduct().getStore().getId().equals(storeId)).orElseThrow(InventoryNotFoundException::new);
         inventory.updateLowStockThreshold(request.lowStockThreshold());
         return inventoryMapper.toResponse(inventory);
     }

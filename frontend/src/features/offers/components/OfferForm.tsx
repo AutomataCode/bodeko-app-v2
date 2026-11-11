@@ -11,7 +11,7 @@ export interface OfferFormProps {
 }
 /** Convierte fechas locales a ISO con zona para evitar promociones desplazadas. */
 export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
-  const [price, setPrice] = useState('');
+  const [percentage, setPercentage] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -21,18 +21,25 @@ export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSubmitted(true);
-    if (!isMoney(price) || !validStart || !validEnd) return;
+    if (
+      !isMoney(percentage) ||
+      Number(percentage) <= 0 ||
+      Number(percentage) >= 100 ||
+      !validStart ||
+      !validEnd
+    )
+      return;
     const result = await action.run(
       () =>
         offerService.create(storeId, productId, {
-          offerPrice: Number(price),
+          discountPercentage: Number(percentage),
           startsAt: new Date(start).toISOString(),
           endsAt: new Date(end).toISOString(),
         }),
       'Oferta creada.',
     );
     if (result) {
-      setPrice('');
+      setPercentage('');
       setStart('');
       setEnd('');
       setSubmitted(false);
@@ -44,14 +51,19 @@ export function OfferForm({ storeId, productId, onSaved }: OfferFormProps) {
       <h2>Nueva oferta</h2>
       <ErrorNotice message={action.error} />
       <Field
-        label="Precio de oferta (S/)"
-        example="19.90"
+        label="Descuento (%)"
+        example="20.00"
         rule="money"
         inputMode="decimal"
         required
-        value={price}
-        onChange={setPrice}
-        error={submitted && !isMoney(price) ? 'Ingresa un precio válido no negativo.' : ''}
+        value={percentage}
+        onChange={setPercentage}
+        error={
+          submitted &&
+          (!isMoney(percentage) || Number(percentage) <= 0 || Number(percentage) >= 100)
+            ? 'Ingresa un descuento entre 0.01 y 99.99 %.'
+            : ''
+        }
       />
       <Field
         label="Fecha y hora de inicio"

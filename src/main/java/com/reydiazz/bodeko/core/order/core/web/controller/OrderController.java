@@ -24,6 +24,7 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency;
 
     @org.springframework.web.bind.annotation.GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getByCustomer(
@@ -36,8 +37,11 @@ public class OrderController {
     public ResponseEntity<OrderResponse> checkout(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID storeId,
+            @org.springframework.web.bind.annotation.RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
             @Valid @RequestBody CheckoutRequest request) {
-        OrderResponse response = orderService.checkout(principal.user().getId(), storeId, request);
+        OrderResponse response = idempotency.execute(principal.user().getId(), "checkout:"+principal.user().getId()+":"+storeId,
+                "checkout",idempotencyKey,request,OrderResponse.class,false,
+                () -> orderService.checkout(principal.user().getId(),storeId,request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

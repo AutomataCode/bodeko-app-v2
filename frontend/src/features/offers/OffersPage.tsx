@@ -44,7 +44,12 @@ export function OffersPage() {
             {offers.data?.length ? (
               offers.data.map((offer) => (
                 <article className="offer-row" key={`${offer.startsAt}-${offer.endsAt}`}>
-                  <strong>{money(offer.offerPrice, store.currency)}</strong>
+                  <strong>
+                    {offer.discountPercentage != null
+                      ? `${offer.discountPercentage}% · `
+                      : 'Oferta anterior · '}
+                    {money(offer.offerPrice, store.currency)}
+                  </strong>
                   <span className={`badge ${offer.active ? 'badge-active' : ''}`}>
                     {offer.active ? 'Vigente' : 'Fuera de vigencia'}
                   </span>

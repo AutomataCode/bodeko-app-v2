@@ -1,5 +1,10 @@
 # Cambios de backend para integrar el frontend
 
+## Validaciones y concurrencia - 11/11/2026
+
+Se añadieron unicidad normalizada en base de datos, estado INACTIVE, ofertas porcentuales, bloqueos adicionales, validación de entradas y claves persistentes para checkout, pagos y cancelaciones. Esta versión requiere V6-V8 y cabecera Idempotency-Key en las operaciones críticas. Consultar `../../docs/VALIDACIONES_BACKEND.md`, `../../docs/API_VALIDACIONES.http` y `../../docs/ARCHIVOS_VALIDACIONES.md` antes del despliegue. Las secciones anteriores siguientes documentan las ampliaciones previas; V1-V5 se conservaron.
+
+
 ## Configuración sin credenciales en el código
 
 `application.properties` lee la conexión de `DB_URL`, `DB_USERNAME` y `DB_PASSWORD`, y la firma de `JWT_SECRET`. Los valores locales anteriores se conservaron únicamente en `.env.dev`, excluido de Git. `.env.example` contiene la estructura sin secretos. La clave JWT de CI se genera para cada ejecución. No se cambió la lógica del backend ni la base de datos en esta revisión.

@@ -24,7 +24,10 @@ export function ProductForm({ storeId, product, onSaved }: ProductFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const errors = {
     name: !name.trim() ? 'Ingresa el nombre del producto.' : '',
-    price: !isMoney(price) ? 'Ingresa un precio no negativo con hasta dos decimales.' : '',
+    price:
+      !isMoney(price) || Number(price) < 0.01 || Number(price) > 100000
+        ? 'Ingresa un precio entre 0.01 y 100000.00 con hasta dos decimales.'
+        : '',
     image:
       imageUrl && !isHttpUrl(imageUrl) ? 'Ingresa una URL que empiece con https:// o http://.' : '',
   };

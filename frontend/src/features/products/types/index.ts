@@ -1,5 +1,5 @@
 /** Estados de visibilidad aceptados por el backend. */
-export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
 /** Producto administrativo con información de publicación e impuestos. */
 export interface Product {
   id: string;

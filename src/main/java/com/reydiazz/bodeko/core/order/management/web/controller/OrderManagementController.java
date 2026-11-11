@@ -22,6 +22,7 @@ import java.util.UUID;
 public class OrderManagementController {
 
     private final OrderManagementService orderManagementService;
+    private final com.reydiazz.bodeko.shared.idempotency.IdempotencyService idempotency;
 
     @GetMapping
     public ResponseEntity<PageResponse<OrderSummaryResponse>> getAll(
@@ -46,9 +47,11 @@ public class OrderManagementController {
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID storeId,
             @PathVariable UUID orderId,
+            @RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
             @Valid @RequestBody ChangeOrderStatusRequest request) {
-        OrderResponse response = orderManagementService.changeStatus(
-                orderId, storeId, principal.user().getId(), request);
+        orderManagementService.getById(orderId,storeId);
+        OrderResponse response = idempotency.execute(principal.user().getId(),"order:"+orderId,"admin-status",idempotencyKey,request,OrderResponse.class,true,
+            () -> orderManagementService.changeStatus(orderId,storeId,principal.user().getId(),request));
         return ResponseEntity.ok(response);
     }
 

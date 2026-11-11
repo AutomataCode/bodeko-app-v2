@@ -13,6 +13,7 @@ public class ProductOfferMapper {
         return new ProductOfferResponse(
                 offer.getProductId(),
                 offer.getOfferPrice(),
+                offer.getDiscountPercentage(),
                 offer.getStartsAt(),
                 offer.getEndsAt(),
                 offer.isActiveAt(OffsetDateTime.now()),

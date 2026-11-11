@@ -1,3 +1,4 @@
+import { idempotentRequest } from '@/config/idempotency';
 import { api } from '@/config';
 import type { Page } from '@/core/types';
 import type { CustomerOrderDetail, CustomerOrderSummary } from '../types';
@@ -13,5 +14,5 @@ export const customerOrderService = {
   detail: async (orderId: string) =>
     (await api.get<CustomerOrderDetail>(`/customer/orders/${orderId}`)).data,
   cancel: async (orderId: string) =>
-    (await api.post<CustomerOrderDetail>(`/customer/orders/${orderId}/cancel`)).data,
+    idempotentRequest<CustomerOrderDetail>('post', `/customer/orders/${orderId}/cancel`, {}),
 };
