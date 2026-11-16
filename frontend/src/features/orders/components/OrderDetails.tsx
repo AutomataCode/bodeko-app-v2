@@ -39,6 +39,15 @@ export function OrderDetails({ order, currency }: OrderDetailsProps) {
           </div>
         )}
       </div>
+      {order.trackingNumber && (
+        <section className="order-tracking" aria-label="Seguimiento del envío">
+          <h3>Seguimiento de entrega</h3>
+          <p><strong>Transportista:</strong> {order.trackingCarrier || 'No indicado'}</p>
+          <p><strong>Número de seguimiento:</strong> {order.trackingNumber}</p>
+          {order.estimatedDeliveryAt && <p><strong>Entrega estimada:</strong> {new Intl.DateTimeFormat('es-PE', { dateStyle: 'medium' }).format(new Date(order.estimatedDeliveryAt))}</p>}
+          {order.trackingUrl && <a className="button secondary" href={order.trackingUrl} target="_blank" rel="noreferrer">Consultar envío</a>}
+        </section>
+      )}
       <div className="table-wrap">
         <table>
           <thead>
@@ -52,8 +61,13 @@ export function OrderDetails({ order, currency }: OrderDetailsProps) {
           </thead>
           <tbody>
             {order.items.map((item) => (
-              <tr key={item.productId}>
-                <td>{item.productName}</td>
+              <tr key={item.variantId}>
+                <td>
+                  {item.productName}
+                  <small className="muted order-details-item">
+                    {Object.entries(item.variantOptions).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'Presentación estándar'} · SKU {item.variantSku}
+                  </small>
+                </td>
                 <td>{item.quantity}</td>
                 <td>{money(item.listUnitPrice, currency)}</td>
                 <td>{money(item.chargedUnitPrice, currency)}</td>

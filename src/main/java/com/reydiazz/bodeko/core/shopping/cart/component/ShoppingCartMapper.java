@@ -41,14 +41,19 @@ public class ShoppingCartMapper {
 
     private ShoppingCartItemResponse toItemResponse(ShoppingCartItem item, Map<UUID, BigDecimal> offerPrices) {
         Product product = item.getProduct();
-        BigDecimal chargedUnitPrice = offerPrices.getOrDefault(product.getId(), product.getBasePrice());
+        BigDecimal offerOnProduct = offerPrices.get(product.getId());
+        BigDecimal chargedUnitPrice = offerOnProduct == null ? item.getVariant().getBasePrice() :
+                offerOnProduct.multiply(item.getVariant().getBasePrice()).divide(product.getBasePrice(), 2, java.math.RoundingMode.HALF_UP);
         BigDecimal itemSubtotal = chargedUnitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
         return new ShoppingCartItemResponse(
                 product.getId(),
+                item.getVariantId(),
+                item.getVariant().getSku(),
+                item.getVariant().getOptions(),
                 product.getName(),
                 product.getImageUrl(),
                 item.getQuantity(),
-                product.getBasePrice(),
+                item.getVariant().getBasePrice(),
                 chargedUnitPrice,
                 itemSubtotal
         );

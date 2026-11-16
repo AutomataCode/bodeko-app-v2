@@ -36,6 +36,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final StoreService storeService;
     private final ProductOfferService productOfferService;
     private final InventoryService inventoryService;
+    private final com.reydiazz.bodeko.core.product.variant.repository.ProductVariantRepository variantRepository;
+    private final com.reydiazz.bodeko.core.inventory.repository.InventoryRepository inventoryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -45,9 +47,21 @@ public class CatalogServiceImpl implements CatalogService {
                 .filter(item -> item.getStatus() == com.reydiazz.bodeko.core.product.core.model.enums.ProductStatus.ACTIVE)
                 .orElseThrow(com.reydiazz.bodeko.core.product.core.exception.ProductNotFoundException::new);
         List<UUID> ids = List.of(productId);
-        return catalogMapper.toResponse(product,
-                productOfferService.findActiveOfferPrices(ids, OffsetDateTime.now()).get(productId),
-                inventoryService.findQuantitiesByProductIds(ids).getOrDefault(productId, 0) > 0);
+        BigDecimal offer = productOfferService.findActiveOfferPrices(ids, OffsetDateTime.now()).get(productId);
+        BigDecimal ratio = offer == null ? null : offer.divide(product.getBasePrice(), 6, java.math.RoundingMode.HALF_UP);
+        var productVariants = variantRepository.findAllByProductIdOrderByIsDefaultDescSkuAsc(productId).stream()
+                .filter(com.reydiazz.bodeko.core.product.variant.model.ProductVariant::isActive).toList();
+        Map<UUID, Integer> stockByVariant = inventoryRepository.findAllByVariantIdIn(
+                        productVariants.stream().map(com.reydiazz.bodeko.core.product.variant.model.ProductVariant::getId).toList())
+                .stream().collect(java.util.stream.Collectors.toMap(com.reydiazz.bodeko.core.inventory.model.entity.Inventory::getVariantId,
+                        com.reydiazz.bodeko.core.inventory.model.entity.Inventory::getQuantity));
+        List<com.reydiazz.bodeko.core.catalog.web.response.CatalogVariantResponse> variants = productVariants.stream()
+                .map(variant -> {
+                    int quantity = stockByVariant.getOrDefault(variant.getId(), 0);
+                    BigDecimal variantOffer = ratio == null ? null : variant.getBasePrice().multiply(ratio).setScale(2, java.math.RoundingMode.HALF_UP);
+                    return new com.reydiazz.bodeko.core.catalog.web.response.CatalogVariantResponse(variant.getId(), variant.getSku(), variant.getOptions(), variant.getBasePrice(), variantOffer, quantity);
+                }).toList();
+        return catalogMapper.toResponse(product, offer, variants.stream().anyMatch(v -> v.quantity() > 0), variants);
     }
 
     @Override
@@ -66,12 +80,24 @@ public class CatalogServiceImpl implements CatalogService {
         List<UUID> productIds = products.getContent().stream().map(Product::getId).toList();
         Map<UUID, BigDecimal> offerPrices = productOfferService.findActiveOfferPrices(productIds, OffsetDateTime.now());
         Map<UUID, Integer> quantities = inventoryService.findQuantitiesByProductIds(productIds);
+        Map<UUID, List<com.reydiazz.bodeko.core.product.variant.model.ProductVariant>> variantsByProduct =
+                variantRepository.findAllByProductIdInAndIsActiveTrue(productIds).stream()
+                        .collect(java.util.stream.Collectors.groupingBy(com.reydiazz.bodeko.core.product.variant.model.ProductVariant::getProductId));
         List<CatalogProductResponse> content = products.getContent().stream()
-                .map(product -> catalogMapper.toResponse(
-                        product,
-                        offerPrices.get(product.getId()),
-                        quantities.getOrDefault(product.getId(), 0) > 0
-                ))
+                .map(product -> {
+                    List<com.reydiazz.bodeko.core.product.variant.model.ProductVariant> activeVariants =
+                            variantsByProduct.getOrDefault(product.getId(), List.of());
+                    BigDecimal startingPrice = activeVariants.stream()
+                            .map(com.reydiazz.bodeko.core.product.variant.model.ProductVariant::getBasePrice)
+                            .min(BigDecimal::compareTo).orElse(product.getBasePrice());
+                    BigDecimal offer = offerPrices.get(product.getId());
+                    BigDecimal startingOffer = offer == null ? null : activeVariants.stream()
+                            .map(variant -> variant.getBasePrice().multiply(offer)
+                                    .divide(product.getBasePrice(), 2, java.math.RoundingMode.HALF_UP))
+                            .min(BigDecimal::compareTo).orElse(offer);
+                    return catalogMapper.toResponse(product, startingPrice, startingOffer,
+                            quantities.getOrDefault(product.getId(), 0) > 0);
+                })
                 .toList();
         return new PageResponse<>(
                 content,

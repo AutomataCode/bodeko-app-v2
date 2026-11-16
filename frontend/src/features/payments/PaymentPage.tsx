@@ -25,7 +25,10 @@ export function PaymentPage() {
         title={order.status === 'PENDING' ? 'Revisa tu orden y paga' : 'Estado de tu compra'}
         actions={
           <div className="actions">
-            <Link className="button secondary" to={`/cuenta/ordenes/${order.id}`}>
+            <Link
+              className="button secondary"
+              to={`/tienda/${store.subdomain}/cuenta/ordenes/${order.id}`}
+            >
               Ver en mis órdenes
             </Link>
             <Button variant="secondary" onClick={resource.reload}>
@@ -57,7 +60,7 @@ export function PaymentPage() {
           <aside className="card summary">
             <h2>{order.status === 'CANCELLED' ? 'Orden cancelada' : 'Gracias por tu compra'}</h2>
             <p>Conserva el número de tu orden para cualquier consulta.</p>
-            <Link className="button secondary" to="/cuenta/ordenes">
+            <Link className="button secondary" to={`/tienda/${store.subdomain}/cuenta/ordenes`}>
               Ver mis órdenes
             </Link>
             <Link className="button primary" to={`/tienda/${store.subdomain}`}>

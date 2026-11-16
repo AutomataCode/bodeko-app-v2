@@ -6,6 +6,9 @@ import java.util.UUID;
 public record OrderItemResponse(
         UUID productId,
         String productName,
+        UUID variantId,
+        String variantSku,
+        java.util.Map<String, String> variantOptions,
         int quantity,
         BigDecimal listUnitPrice,
         BigDecimal chargedUnitPrice,

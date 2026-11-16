@@ -1,6 +1,7 @@
 package com.reydiazz.bodeko.core.inventory.model.entity;
 
 import com.reydiazz.bodeko.core.product.core.model.entity.Product;
+import com.reydiazz.bodeko.core.product.variant.model.ProductVariant;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,9 +20,16 @@ public class Inventory {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "product_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @Column(name = "variant_id", nullable = false, unique = true, updatable = false)
+    private UUID variantId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "variant_id", referencedColumnName = "id", insertable = false, updatable = false)
+    private ProductVariant variant;
 
     @Builder.Default
     @Column(name = "quantity", nullable = false)

@@ -28,8 +28,12 @@ public class Store {
     @Column(name = "name",nullable = false)
     private String name;
 
-    @Column(name = "tax_id",nullable = false,unique = true)
+    @Column(name = "tax_id", nullable = false)
     private String taxId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "billing_issuer_id")
+    private com.reydiazz.bodeko.core.billing.model.BillingIssuer billingIssuer;
 
     @Column(name = "legal_name",nullable = false)
     private String legalName;
@@ -51,6 +55,13 @@ public class Store {
 
     public void updateTaxRate(BigDecimal taxRate) {
         this.taxRate = taxRate;
+    }
+
+    /** Vincula el emisor fiscal compartido y conserva sus datos en los campos existentes. */
+    public void setBillingIssuer(com.reydiazz.bodeko.core.billing.model.BillingIssuer issuer) {
+        this.billingIssuer = issuer;
+        this.taxId = issuer.getTaxId();
+        this.legalName = issuer.getLegalName();
     }
 
 }

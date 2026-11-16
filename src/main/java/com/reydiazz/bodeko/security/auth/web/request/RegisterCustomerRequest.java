@@ -31,7 +31,9 @@ public record RegisterCustomerRequest(
 
         @Size(max = 20, message = "Document number must have at most 20 characters")
         @jakarta.validation.constraints.Pattern(regexp="^[^\\x00]*$",message="El campo contiene un carácter nulo no permitido")
-        String documentNumber
+        String documentNumber,
+
+        boolean marketingConsent
 
 ) {
     /** Si se agrega un documento, valida su tipo y número. */

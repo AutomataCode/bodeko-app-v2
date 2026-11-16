@@ -27,7 +27,11 @@ public class OrderMapper {
                 order.getAppliedTaxRate(),
                 order.getStatus(),
                 order.getCreatedAt(),
-                items.stream().map(this::toItemResponse).toList()
+                items.stream().map(this::toItemResponse).toList(),
+                order.getTrackingCarrier(),
+                order.getTrackingNumber(),
+                order.getTrackingUrl(),
+                order.getEstimatedDeliveryAt()
         );
     }
 
@@ -35,6 +39,9 @@ public class OrderMapper {
         return new OrderItemResponse(
                 item.getProductId(),
                 item.getProductName(),
+                item.getVariantId(),
+                item.getVariantSku(),
+                item.getVariantOptions(),
                 item.getQuantity(),
                 item.getListUnitPrice(),
                 item.getChargedUnitPrice(),

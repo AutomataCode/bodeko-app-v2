@@ -1,5 +1,8 @@
 import { Link, useOutletContext } from 'react-router-dom';
-import { ArrowUpRight, Package, ShoppingBag } from 'lucide-react';
+import { ArrowUpRight, Package, ShoppingBag, TriangleAlert } from 'lucide-react';
+import { useCallback } from 'react';
+import { useResource } from '@/core/hooks/useResource';
+import { lowStockService } from '@/features/inventory/services/lowStockService';
 import { Button, ErrorNotice, Loading, PageHeader } from '@/core/components';
 import type { Store } from '@/features/stores';
 import { useSession } from '@/context/SessionContext';
@@ -10,6 +13,7 @@ export function DashboardPage() {
   const store = useOutletContext<Store>();
   const { user } = useSession();
   const resource = useDashboard(store.id);
+  const lowStock = useResource(useCallback(() => lowStockService.list(store.id), [store.id]));
   return (
     <>
       <PageHeader
@@ -34,6 +38,12 @@ export function DashboardPage() {
           </div>
         )
       )}
+      <section className="card low-stock-card">
+        <div><h2><TriangleAlert size={20} /> Reposición sugerida</h2><p className="muted">Variantes en umbral y cantidad mínima para superarlo.</p></div>
+        <ErrorNotice message={lowStock.error} retry={lowStock.reload} />
+        {lowStock.loading ? <Loading /> : lowStock.data?.length ? <div className="low-stock-list">{lowStock.data.slice(0, 8).map((item) => <div key={item.variantId}><span><strong>{item.productName}</strong><small>{item.sku} · {Object.values(item.options).join(' / ') || 'Presentación estándar'}</small></span><b>{item.quantity} / {item.threshold}<small>Reponer al menos: {item.suggestedQuantity}</small></b></div>)}</div> : <p className="muted">No hay variantes bajo el umbral.</p>}
+        <Link className="text-link" to={`/admin/${store.id}/inventario`}>Revisar existencias</Link>
+      </section>
       <section className="card admin-welcome">
         <span className="eyebrow">SIGUE CONSTRUYENDO TU NEGOCIO</span>
         <h2>Todo listo para tu próxima venta.</h2>

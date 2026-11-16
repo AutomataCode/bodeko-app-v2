@@ -1,6 +1,9 @@
 /** Producto del carrito con los precios calculados por el servidor. */
 export interface CartItem {
   productId: string;
+  variantId: string;
+  sku: string;
+  options: Record<string, string>;
   name: string;
   imageUrl: string | null;
   quantity: number;

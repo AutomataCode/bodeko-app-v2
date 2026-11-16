@@ -13,6 +13,6 @@ import java.util.UUID;
 public class OrderItemId implements Serializable {
 
     private UUID orderId;
-    private UUID productId;
+    private UUID variantId;
 
 }

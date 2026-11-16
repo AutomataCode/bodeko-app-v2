@@ -6,7 +6,7 @@ import com.reydiazz.bodeko.core.payment.service.PaymentService;
 import com.reydiazz.bodeko.core.payment.util.PaymentRouters;
 import com.reydiazz.bodeko.core.payment.web.request.CreatePaymentRequest;
 import com.reydiazz.bodeko.core.payment.web.response.PaymentResponse;
-import com.reydiazz.bodeko.security.config.UserPrincipal;
+import com.reydiazz.bodeko.security.config.CustomerPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,14 +31,14 @@ public class PaymentController {
 
     @PostMapping
     public ResponseEntity<PaymentResponse> pay(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId,
             @PathVariable UUID orderId,
             @org.springframework.web.bind.annotation.RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
             @Valid @RequestBody CreatePaymentRequest request) {
-        orderService.getByCustomer(principal.user().getId(),storeId,orderId);
-        PaymentResponse response = idempotency.execute(principal.user().getId(),"order:"+orderId,"pay",idempotencyKey,request,PaymentResponse.class,true,
-                () -> paymentService.pay(principal.user().getId(),storeId,orderId,request));
+        orderService.getByCustomer(principal.customer().getId(),storeId,orderId);
+        PaymentResponse response = idempotency.execute(principal.customer().getId(),"order:"+orderId,"pay",idempotencyKey,request,PaymentResponse.class,true,
+                () -> paymentService.pay(principal.customer().getId(),storeId,orderId,request));
         if (response.status() == PaymentStatus.FAILED) {
             throw new PaymentDeclinedException(response.message());
         }

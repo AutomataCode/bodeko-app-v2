@@ -2,18 +2,22 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, ErrorNotice, Field, Select } from '@/core/components';
 import { isDocument, isEmail, type DocumentType } from '@/utils/validation';
+import type { PublicStore } from '@/features/stores/types';
 import { useAuth } from '../hooks/useAuth';
 
 /** register indica si se muestra el registro o el inicio de sesión. */
 export interface AuthFormProps {
   register: boolean;
+  /** Con tienda, la cuenta es de cliente de esa tienda; sin ella, es de propietario en Bodeko. */
+  store?: PublicStore;
 }
 /** Formulario compartido de inicio de sesión y registro. */
-export function AuthForm({ register }: AuthFormProps) {
+export function AuthForm({ register, store }: AuthFormProps) {
   const navigate = useNavigate();
   const [query] = useSearchParams();
-  const auth = useAuth();
-  const [owner, setOwner] = useState(false);
+  const auth = useAuth(store?.id);
+  const owner = !store;
+  const base = store ? `/tienda/${store.subdomain}` : '';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +25,7 @@ export function AuthForm({ register }: AuthFormProps) {
   const [phone, setPhone] = useState('');
   const [documentType, setDocumentType] = useState('');
   const [documentNumber, setDocumentNumber] = useState('');
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const errors = {
     name:
@@ -56,18 +61,18 @@ export function AuthForm({ register }: AuthFormProps) {
       ...(!owner && documentType
         ? { documentType: documentType as DocumentType, documentNumber }
         : {}),
+      ...(!owner && register ? { marketingConsent } : {}),
     };
-    const result = register ? await auth.register(body, owner) : await auth.login(body);
+    const result = register ? await auth.register(body) : await auth.login(body);
     if (result) {
       const next = query.get('next');
-      navigate(
-        next?.startsWith('/') && !next.startsWith('//')
+      // Solo se vuelve a páginas de la misma tienda (o de Bodeko, para propietarios).
+      const safeNext =
+        next?.startsWith('/') && !next.startsWith('//') && (!store || next.startsWith(`${base}/`))
           ? next
-          : result.role === 'ADMIN'
-            ? '/admin'
-            : '/',
-        { replace: true },
-      );
+          : null;
+      const defaultPath = store ? base : result.role === 'SUPER_ADMIN' ? '/superadmin' : '/admin';
+      navigate(safeNext ?? defaultPath, { replace: true });
     }
   }
   return (
@@ -75,16 +80,6 @@ export function AuthForm({ register }: AuthFormProps) {
       <ErrorNotice message={auth.error} />
       {register && (
         <>
-          <Select
-            label="Tipo de cuenta"
-            value={owner ? 'owner' : 'customer'}
-            onChange={(value) => setOwner(value === 'owner')}
-            options={[
-              { value: 'customer', label: 'Cliente: quiero comprar' },
-              { value: 'owner', label: 'Propietario: quiero vender' },
-            ]}
-            hint="Ejemplo: Cliente para comprar en las tiendas."
-          />
           <Field
             label="Nombre completo"
             example="María García López"
@@ -113,7 +108,9 @@ export function AuthForm({ register }: AuthFormProps) {
       <Field
         label="Contraseña"
         example={
-          register ? 'Una frase segura de al menos 8 caracteres' : 'No compartas tu contraseña con nadie'
+          register
+            ? 'Una frase segura de al menos 8 caracteres'
+            : 'No compartas tu contraseña con nadie'
         }
         type="password"
         value={password}
@@ -186,13 +183,19 @@ export function AuthForm({ register }: AuthFormProps) {
           )}
         </>
       )}
+      {register && !owner && (
+        <label className="marketing-consent">
+          <input type="checkbox" checked={marketingConsent} onChange={(event) => setMarketingConsent(event.target.checked)} />
+          <span>Acepto recibir novedades y recordatorios de mi carrito por correo. Es opcional.</span>
+        </label>
+      )}
       <Button type="submit" pending={auth.pending}>
         {register ? 'Crear cuenta' : 'Iniciar sesión'}
       </Button>
       <p className="muted">
         {register ? '¿Ya tienes cuenta? ' : '¿Aún no tienes cuenta? '}
         <Link
-          to={`${register ? '/ingresar' : '/registro'}${query.toString() ? `?${query.toString()}` : ''}`}
+          to={`${base}${register ? '/ingresar' : '/registro'}${query.toString() ? `?${query.toString()}` : ''}`}
         >
           {register ? 'Inicia sesión' : 'Regístrate'}
         </Link>

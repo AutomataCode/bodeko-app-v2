@@ -31,8 +31,8 @@ export function SiteLayout() {
             ) : (
               <Link to="/tiendas">Tiendas</Link>
             )}
-            {user?.role === 'CUSTOMER' && <Link to="/cuenta/ordenes">Mis órdenes</Link>}
             {user?.role === 'ADMIN' && <Link to="/admin">Mi negocio</Link>}
+            {user?.role === 'SUPER_ADMIN' && <Link to="/superadmin">Gestión de plataforma</Link>}
           </nav>
           <div className="header-account">
             {user ? (

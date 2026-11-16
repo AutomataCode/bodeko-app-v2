@@ -1,4 +1,4 @@
--- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V8.
+-- BODEKO: datos sintéticos para desarrollo, posteriores a Flyway V1-V11.
 -- Ejecutar primero 00_compatibilidad_historial.sql y después este archivo completo.
 -- Esta carga no crea/elimina tablas ni modifica datos existentes.
 -- Contraseña de TODAS las cuentas demo: BodekoDemo2026!
@@ -11,9 +11,13 @@ BEGIN
     IF to_regclass('public.api_idempotency') IS NULL
        OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='product_offers' AND column_name='discount_percentage')
        OR to_regclass('public.order_status_history') IS NULL
+       OR to_regclass('public.customers') IS NULL
+       OR to_regclass('public.product_variants') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.users'::regclass AND conname='ck_users_role' AND pg_get_constraintdef(oid) LIKE '%SUPER_ADMIN%')
+       OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='inventory' AND column_name='variant_id')
        OR NOT EXISTS (SELECT 1 FROM information_schema.columns
                       WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'document_number') THEN
-        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V8.';
+        RAISE EXCEPTION 'Primero inicia el backend para aplicar las migraciones Flyway V1-V11.';
     END IF;
 END $$;
 
@@ -28,19 +32,27 @@ BEGIN
 END $$;
 
 -- Dos propietarios: permiten comprobar que cada uno solo administra sus propias tiendas.
--- Dos clientes: permiten comprobar que una cuenta no puede consultar las órdenes de otra.
 INSERT INTO users (id, email, password_hash, full_name, role, phone_number, document_type, document_number)
 VALUES
 ('b0de0000-0000-4000-8000-000000000001', 'admin.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Administrador Demo', 'ADMIN', '+51999999001', NULL, NULL),
 ('b0de0000-0000-4000-8000-000000000002', 'tecnologia.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Administrador Tecnología', 'ADMIN', '+51999999002', NULL, NULL),
-('b0de0000-0000-4000-8000-000000000003', 'cliente.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Cliente Demo', 'CUSTOMER', '+51999999003', 'DNI', '12345678'),
-('b0de0000-0000-4000-8000-000000000004', 'cliente2.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Segundo Cliente Demo', 'CUSTOMER', '+51999999004', 'DNI', '87654321')
+('b0de0000-0000-4000-8000-000000000006', 'superadmin.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Superadministrador Demo', 'SUPER_ADMIN', NULL, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO stores (id, owner_id, name, tax_id, legal_name, subdomain, currency, tax_rate)
 VALUES
 ('b0de1000-0000-4000-8000-000000000001', 'b0de0000-0000-4000-8000-000000000001', 'Bodeko Market Demo', '20999999001', 'Comercio Ficticio Demo S.A.C.', 'bodeko-market-demo', 'PEN', 0.18),
 ('b0de1000-0000-4000-8000-000000000002', 'b0de0000-0000-4000-8000-000000000002', 'Bodeko Tecnología Demo', '20999999002', 'Tecnología Ficticia Demo S.A.C.', 'bodeko-tech-demo', 'PEN', 0.18)
+ON CONFLICT (id) DO NOTHING;
+
+-- Los clientes pertenecen a una tienda (tabla customers). Dos clientes en Bodeko Market Demo
+-- permiten comprobar que una cuenta no puede consultar las órdenes de otra; el primer correo
+-- también existe en la tienda de tecnología como una cuenta independiente.
+INSERT INTO customers (id, store_id, email, password_hash, full_name, phone_number, document_type, document_number)
+VALUES
+('b0de0000-0000-4000-8000-000000000003', 'b0de1000-0000-4000-8000-000000000001', 'cliente.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Cliente Demo', '+51999999003', 'DNI', '12345678'),
+('b0de0000-0000-4000-8000-000000000004', 'b0de1000-0000-4000-8000-000000000001', 'cliente2.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Segundo Cliente Demo', '+51999999004', 'DNI', '87654321'),
+('b0de0000-0000-4000-8000-000000000005', 'b0de1000-0000-4000-8000-000000000002', 'cliente.demo@bodeko.test', '$2a$10$tlJgtV/apg1y/X5xe7Rju.oEx/hcwRcQSu8OQTtEE4pYA8YP6xy.m', 'Cliente Demo', '+51999999003', NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO categories (id, store_id, name)
@@ -70,9 +82,19 @@ VALUES
 ('b0de3000-0000-4000-8000-000000000012', 'b0de1000-0000-4000-8000-000000000002', 'b0de2000-0000-4000-8000-000000000006', 'Cámara web en borrador', 'Producto demo pendiente de publicación.', 159.00, FALSE, 'DRAFT')
 ON CONFLICT (id) DO NOTHING;
 
+-- La carga SQL crea las variantes directamente porque no pasa por ProductService.
+INSERT INTO product_variants (id, product_id, store_id, sku, options, options_key, base_price,
+    is_default, is_active, created_at)
+SELECT p.id, p.id, p.store_id,
+    'BOD-' || upper(substr(replace(p.id::text, '-', ''), 1, 24)), '{}'::jsonb, 'DEFAULT', p.base_price,
+    TRUE, TRUE, p.created_at
+FROM products p
+WHERE p.id::text LIKE 'b0de3000-%'
+ON CONFLICT (id) DO NOTHING;
+
 -- El SQL no pasa por ProductService: por eso crea explícitamente los inventarios.
-INSERT INTO inventory (id, product_id, quantity, low_stock_threshold)
-SELECT replace(product_id, 'b0de3000', 'b0de4000')::uuid, product_id::uuid, quantity, threshold
+INSERT INTO inventory (id, product_id, variant_id, quantity, low_stock_threshold)
+SELECT replace(product_id, 'b0de3000', 'b0de4000')::uuid, product_id::uuid, product_id::uuid, quantity, threshold
 FROM (VALUES
 ('b0de3000-0000-4000-8000-000000000001', 40, 5),
 ('b0de3000-0000-4000-8000-000000000002', 4, 5),
@@ -87,7 +109,7 @@ FROM (VALUES
 ('b0de3000-0000-4000-8000-000000000011', 0, 3),
 ('b0de3000-0000-4000-8000-000000000012', 0, 3)
 ) AS stock(product_id, quantity, threshold)
-ON CONFLICT (product_id) DO NOTHING;
+ON CONFLICT (variant_id) DO NOTHING;
 
 -- Se insertan solo si el producto aún no tiene ofertas: repetir no crea solapamientos.
 INSERT INTO product_offers (store_id, product_id, offer_price, starts_at, ends_at, discount_percentage)
@@ -108,15 +130,15 @@ INSERT INTO shopping_carts (id, user_id, store_id, status)
 VALUES ('b0de6000-0000-4000-8000-000000000001', 'b0de0000-0000-4000-8000-000000000003', 'b0de1000-0000-4000-8000-000000000001', 'OPEN')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO shopping_cart_items (store_id, cart_id, product_id, quantity)
-SELECT c.store_id, c.id, items.product_id, items.quantity
+INSERT INTO shopping_cart_items (store_id, cart_id, product_id, variant_id, quantity)
+SELECT c.store_id, c.id, items.product_id, items.product_id, items.quantity
 FROM shopping_carts c
 CROSS JOIN (VALUES
 ('b0de3000-0000-4000-8000-000000000001'::uuid, 1),
 ('b0de3000-0000-4000-8000-000000000002'::uuid, 2)
 ) AS items(product_id, quantity)
 WHERE c.id = 'b0de6000-0000-4000-8000-000000000001' AND c.status = 'OPEN'
-ON CONFLICT (cart_id, product_id) DO NOTHING;
+ON CONFLICT (cart_id, variant_id) DO NOTHING;
 
 -- Historial ficticio ya contabilizado en el stock inicial; no son operaciones reales.
 -- Todas las líneas usan un café a S/25.90, IGV S/4.66, total S/30.56.
@@ -137,13 +159,17 @@ FROM (VALUES
 ) AS fixture(id, number, invoice, status, age)
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO order_items (store_id, order_id, product_id, product_name, quantity, list_unit_price, charged_unit_price, item_subtotal)
-SELECT store_id, id, 'b0de3000-0000-4000-8000-000000000001', 'Café peruano 250 g', 1, 25.90, 25.90, 25.90
-FROM orders WHERE id IN (
+INSERT INTO order_items (store_id, order_id, product_id, variant_id, variant_sku, variant_options,
+    product_name, quantity, list_unit_price, charged_unit_price, item_subtotal)
+SELECT o.store_id, o.id, p.id, p.id, pv.sku, pv.options, p.name, 1, 25.90, 25.90, 25.90
+FROM orders o
+JOIN products p ON p.id = 'b0de3000-0000-4000-8000-000000000001'
+JOIN product_variants pv ON pv.id = p.id
+WHERE o.id IN (
 'b0de7000-0000-4000-8000-000000000001', 'b0de7000-0000-4000-8000-000000000002',
 'b0de7000-0000-4000-8000-000000000003', 'b0de7000-0000-4000-8000-000000000004',
 'b0de7000-0000-4000-8000-000000000005')
-ON CONFLICT (order_id, product_id) DO NOTHING;
+ON CONFLICT (order_id, variant_id) DO NOTHING;
 
 INSERT INTO payments (id, order_id, provider, transaction_id, amount, status)
 VALUES

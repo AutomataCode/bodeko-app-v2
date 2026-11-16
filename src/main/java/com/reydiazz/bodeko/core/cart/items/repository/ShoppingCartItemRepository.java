@@ -12,9 +12,9 @@ import java.util.UUID;
 
 public interface ShoppingCartItemRepository extends JpaRepository<ShoppingCartItem, ShoppingCartItemId> {
 
-    Optional<ShoppingCartItem> findByCartIdAndProductId(UUID cartId, UUID productId);
+    Optional<ShoppingCartItem> findByCartIdAndVariantId(UUID cartId, UUID variantId);
 
-    @Query("select i from ShoppingCartItem i join fetch i.product p where i.cartId = :cartId order by p.name asc")
+    @Query("select i from ShoppingCartItem i join fetch i.product p join fetch i.variant where i.cartId = :cartId order by p.name asc")
     List<ShoppingCartItem> findAllWithProductByCartId(@Param("cartId") UUID cartId);
 
 }

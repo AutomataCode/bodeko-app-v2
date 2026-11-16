@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Button, ErrorNotice, Loading, Modal, PageHeader, Select } from '@/core/components';
+import { FileText } from 'lucide-react';
 import { useAction } from '@/core/hooks/useAction';
 import { useResource } from '@/core/hooks/useResource';
 import type { Store } from '@/features/stores';
 import { labels } from '@/utils/format';
 import { orderService } from './services/orderService';
 import { OrderDetails } from './components/OrderDetails';
+import { OrderTrackingForm } from './components/OrderTrackingForm';
 import type { OrderStatus } from './types';
 /** Transiciones permitidas del contrato de OrderManagementService. */
 const transitions: Record<OrderStatus, OrderStatus[]> = {
@@ -48,8 +50,14 @@ export function OrderDetailPage() {
       />
       <section className="card">
         <OrderDetails order={order} currency={store.currency} />
+        {['PAID', 'SHIPPED', 'DELIVERED'].includes(order.status) && (
+          <Link className="button secondary document-order-link" to={`/admin/${store.id}/ordenes/${order.id}/comprobante`}>
+            <FileText size={16} /> Ver boleta o factura
+          </Link>
+        )}
       </section>
       <ErrorNotice message={action.error} />
+      {order.status === 'SHIPPED' && <OrderTrackingForm storeId={store.id} order={order} onSaved={resource.reload} />}
       {transitions[order.status].length > 0 && (
         <section className="card inline-form">
           <Select

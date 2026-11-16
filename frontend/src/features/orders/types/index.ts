@@ -6,6 +6,9 @@ export type InvoiceType = 'RECEIPT' | 'INVOICE';
 export interface OrderItem {
   productId: string;
   productName: string;
+  variantId: string;
+  variantSku: string;
+  variantOptions: Record<string, string>;
   quantity: number;
   listUnitPrice: number;
   chargedUnitPrice: number;
@@ -31,4 +34,8 @@ export interface Order extends OrderSummary {
   taxAmount: number;
   appliedTaxRate: number;
   items: OrderItem[];
+  trackingCarrier: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  estimatedDeliveryAt: string | null;
 }

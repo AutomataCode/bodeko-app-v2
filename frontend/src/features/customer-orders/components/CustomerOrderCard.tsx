@@ -18,7 +18,10 @@ export function CustomerOrderCard({ order, onCancel }: CustomerOrderCardProps) {
       <header className="customer-order-card-header">
         <div>
           <span className="order-label">NÚMERO DE ORDEN</span>
-          <Link className="order-number" to={`/cuenta/ordenes/${order.id}`}>
+          <Link
+            className="order-number"
+            to={`/tienda/${order.storeSubdomain}/cuenta/ordenes/${order.id}`}
+          >
             {order.orderNumber}
           </Link>
           <time dateTime={order.createdAt}>{dateTime(order.createdAt)}</time>
@@ -44,7 +47,10 @@ export function CustomerOrderCard({ order, onCancel }: CustomerOrderCardProps) {
         </div>
       </div>
       <footer className="customer-order-card-footer">
-        <Link className="order-detail-link" to={`/cuenta/ordenes/${order.id}`}>
+        <Link
+          className="order-detail-link"
+          to={`/tienda/${order.storeSubdomain}/cuenta/ordenes/${order.id}`}
+        >
           Ver detalle de la orden <ArrowRight size={15} />
         </Link>
         <div className="actions">

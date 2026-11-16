@@ -31,10 +31,22 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
 
     boolean existsByIdAndOwnerId(UUID id, UUID ownerId);
 
+    java.util.Optional<Store> findByIdAndOwnerId(UUID id, UUID ownerId);
+
+    long countByBillingIssuerId(UUID issuerId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("update Store s set s.taxId = :taxId, s.legalName = :legalName where s.billingIssuer.id = :issuerId")
+    int updateLegacyBillingData(@org.springframework.data.repository.query.Param("issuerId") UUID issuerId,
+                                @org.springframework.data.repository.query.Param("taxId") String taxId,
+                                @org.springframework.data.repository.query.Param("legalName") String legalName);
+
     boolean existsByTaxId(String taxId);
 
     boolean existsBySubdomain(String subdomain);
 
     List<Store> findAllByOwnerId(UUID ownerId);
+
+    List<Store> findAllByOwnerIdIn(java.util.Collection<UUID> ownerIds);
 
 }

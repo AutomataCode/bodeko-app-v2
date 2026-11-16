@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
-import { SESSION_KEY } from '@/config';
 import { authService } from '@/features/auth/services/authService';
 import type { User } from '@/core/types';
 import { errorMessage } from '@/utils/errors';
@@ -15,23 +14,24 @@ interface SessionState {
 }
 const SessionContext = createContext<SessionState | null>(null);
 /** Recupera la sesión al cargar la página y la limpia cuando vence. */
-export function SessionProvider({ children }: { children: ReactNode }) {
+/** tokenKey separa la sesión del propietario (Bodeko) de la de cada tienda. */
+export function SessionProvider({ tokenKey, children }: { tokenKey: string; children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const logout = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(tokenKey);
     setUser(null);
     setError('');
-  }, []);
+  }, [tokenKey]);
   useEffect(() => {
     let active = true;
     const expire = () => {
       logout();
     };
     window.addEventListener('bodeko:unauthorized', expire);
-    if (!sessionStorage.getItem(SESSION_KEY)) {
+    if (!sessionStorage.getItem(tokenKey)) {
       setLoading(false);
       return () => window.removeEventListener('bodeko:unauthorized', expire);
     }
@@ -43,7 +43,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (active) setUser(result);
       })
       .catch((cause: unknown) => {
-        if (active && sessionStorage.getItem(SESSION_KEY)) setError(errorMessage(cause));
+        if (active && sessionStorage.getItem(tokenKey)) setError(errorMessage(cause));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -52,9 +52,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       active = false;
       window.removeEventListener('bodeko:unauthorized', expire);
     };
-  }, [logout, revision]);
+  }, [logout, revision, tokenKey]);
   async function establish(token: string) {
-    sessionStorage.setItem(SESSION_KEY, token);
+    sessionStorage.setItem(tokenKey, token);
     try {
       const currentUser = await authService.me();
       setUser(currentUser);

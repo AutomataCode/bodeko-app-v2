@@ -16,6 +16,8 @@ import com.reydiazz.bodeko.core.order.core.repository.OrderRepository;
 import com.reydiazz.bodeko.core.order.core.web.request.CheckoutRequest;
 import com.reydiazz.bodeko.core.order.core.web.response.OrderResponse;
 import com.reydiazz.bodeko.core.inventory.service.InventoryService;
+import com.reydiazz.bodeko.core.inventory.service.InventoryMovementService;
+import com.reydiazz.bodeko.core.inventory.model.enums.InventoryMovementType;
 import com.reydiazz.bodeko.core.order.items.model.entity.OrderItem;
 import com.reydiazz.bodeko.core.order.items.repository.OrderItemRepository;
 import com.reydiazz.bodeko.core.product.core.model.entity.Product;
@@ -25,7 +27,7 @@ import com.reydiazz.bodeko.core.shopping.cart.model.entity.ShoppingCart;
 import com.reydiazz.bodeko.core.shopping.cart.service.ShoppingCartService;
 import com.reydiazz.bodeko.core.store.model.entity.Store;
 import com.reydiazz.bodeko.core.store.service.StoreService;
-import com.reydiazz.bodeko.core.user.core.service.UserService;
+import com.reydiazz.bodeko.core.customer.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,10 +58,11 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
 
     private final StoreService storeService;
-    private final UserService userService;
+    private final CustomerService customerService;
     private final ShoppingCartService shoppingCartService;
     private final ProductOfferService productOfferService;
     private final InventoryService inventoryService;
+    private final InventoryMovementService inventoryMovementService;
     private final com.reydiazz.bodeko.core.product.core.repository.ProductRepository productRepository;
     private final jakarta.persistence.EntityManager entityManager;
 
@@ -88,17 +91,24 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // Todos los procesos bloquean productos en el mismo orden para reducir interbloqueos.
-        cartItems.stream().map(ShoppingCartItem::getProductId).sorted().forEach(id -> {
+        cartItems.stream().map(ShoppingCartItem::getProductId).distinct().sorted().forEach(id -> {
             Product locked = productRepository.findByIdAndStoreIdForUpdate(id, storeId)
-                .orElseThrow(com.reydiazz.bodeko.core.product.core.exception.ProductNotFoundException::new);
+                    .orElseThrow(com.reydiazz.bodeko.core.product.core.exception.ProductNotFoundException::new);
             entityManager.refresh(locked);
             if (locked.getStatus() != ProductStatus.ACTIVE) throw new OrderProductNotAvailableException(locked.getName());
+        });
+        cartItems.stream().map(ShoppingCartItem::getVariantId).sorted().forEach(id -> {
+            var locked = inventoryService.lockVariantStock(id);
+            entityManager.refresh(locked.getProduct());
+            entityManager.refresh(locked.getVariant());
+            if (!locked.getVariant().isActive() || locked.getProduct().getStatus() != ProductStatus.ACTIVE)
+                throw new OrderProductNotAvailableException(locked.getProduct().getName());
         });
         OffsetDateTime now = OffsetDateTime.now();
         List<UUID> productIds = cartItems.stream().map(ShoppingCartItem::getProductId).toList();
         Map<UUID, BigDecimal> offerPrices = productOfferService.findActiveOfferPrices(productIds, now);
         List<OrderLine> lines = cartItems.stream()
-                .sorted(Comparator.comparing(ShoppingCartItem::getProductId))
+                .sorted(Comparator.comparing(ShoppingCartItem::getVariantId))
                 .map(item -> toLine(item, offerPrices))
                 .toList();
 
@@ -112,12 +122,10 @@ public class OrderServiceImpl implements OrderService {
             throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.PRICE_LIMIT);
         }
 
-        lines.forEach(line -> inventoryService.decreaseStock(line.product().getId(), line.cartItem().getQuantity()));
-
         Order order = Order.builder()
                 .id(UuidCreator.getTimeOrderedEpoch())
                 .store(store)
-                .customer(userService.getReferenceById(userId))
+                .customer(customerService.getReferenceById(userId))
                 .orderNumber(generateOrderNumber(now))
                 .invoiceType(request.invoiceType())
                 .customerDocumentType(request.documentType())
@@ -136,6 +144,13 @@ public class OrderServiceImpl implements OrderService {
                 .map(line -> toOrderItem(orderSaved, line))
                 .toList();
         orderItemRepository.saveAll(orderItems);
+        for (OrderLine line : lines) {
+            inventoryService.decreaseVariantStock(line.cartItem().getVariantId(), line.cartItem().getQuantity());
+        }
+        String customerName = orderSaved.getCustomer().getFullName();
+        String customerEmail = orderSaved.getCustomer().getEmail();
+        orderItems.forEach(item -> inventoryMovementService.recordOrderItem(item, InventoryMovementType.RESERVATION,
+                -item.getQuantity(), "Reserva creada al confirmar el pedido", userId, customerName, customerEmail, "CUSTOMER"));
 
         shoppingCartService.markAsConverted(cart);
         return orderMapper.toResponse(orderSaved, orderItems);
@@ -163,19 +178,25 @@ public class OrderServiceImpl implements OrderService {
         if (product.getStatus() != ProductStatus.ACTIVE) {
             throw new OrderProductNotAvailableException(product.getName());
         }
-        BigDecimal chargedUnitPrice = offerPrices.getOrDefault(product.getId(), product.getBasePrice());
+        BigDecimal variantPrice = item.getVariant().getBasePrice();
+        BigDecimal productOfferPrice = offerPrices.get(product.getId());
+        BigDecimal chargedUnitPrice = productOfferPrice == null ? variantPrice :
+                productOfferPrice.multiply(variantPrice).divide(product.getBasePrice(), 2, RoundingMode.HALF_UP);
         BigDecimal itemSubtotal = chargedUnitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
-        return new OrderLine(item, product, product.getBasePrice(), chargedUnitPrice, itemSubtotal);
+        return new OrderLine(item, product, variantPrice, chargedUnitPrice, itemSubtotal);
     }
 
     private OrderItem toOrderItem(Order order, OrderLine line) {
         return OrderItem.builder()
                 .orderId(order.getId())
                 .productId(line.product().getId())
+                .variantId(line.cartItem().getVariantId())
                 .storeId(order.getStore().getId())
                 .order(order)
                 .product(line.product())
                 .productName(line.product().getName())
+                .variantSku(line.cartItem().getVariant().getSku())
+                .variantOptions(line.cartItem().getVariant().getOptions())
                 .quantity(line.cartItem().getQuantity())
                 .listUnitPrice(line.listUnitPrice())
                 .chargedUnitPrice(line.chargedUnitPrice())

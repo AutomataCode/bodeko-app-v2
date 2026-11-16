@@ -10,6 +10,8 @@ public class InventoryMapper {
     public InventoryResponse toResponse(Inventory inventory) {
         return new InventoryResponse(
                 inventory.getProduct().getId(),
+                inventory.getVariantId(),
+                inventory.getVariant().getSku(),
                 inventory.getQuantity(),
                 inventory.getLowStockThreshold(),
                 inventory.isLowStock(),

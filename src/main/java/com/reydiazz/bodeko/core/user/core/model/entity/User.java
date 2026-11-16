@@ -51,4 +51,7 @@ public class User {
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 
+    /** Suspende o reactiva la cuenta sin borrar su historial ni sus tiendas. */
+    public void changeActive(boolean active) { this.isActive = active; }
+
 }

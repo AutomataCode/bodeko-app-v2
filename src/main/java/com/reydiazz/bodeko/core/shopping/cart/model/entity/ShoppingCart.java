@@ -2,7 +2,7 @@ package com.reydiazz.bodeko.core.shopping.cart.model.entity;
 
 import com.reydiazz.bodeko.core.shopping.cart.model.enums.ShoppingCartStatus;
 import com.reydiazz.bodeko.core.store.model.entity.Store;
-import com.reydiazz.bodeko.core.user.core.model.entity.User;
+import com.reydiazz.bodeko.core.customer.model.entity.Customer;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -45,7 +45,7 @@ public class ShoppingCart {
 
     @ManyToOne(fetch = FetchType.LAZY,optional = false)
     @JoinColumn(name = "user_id",nullable = false)
-    private User user;
+    private Customer user;
 
     @ManyToOne(fetch = FetchType.LAZY,optional = false)
     @JoinColumn(name = "store_id",nullable = false)
@@ -59,8 +59,22 @@ public class ShoppingCart {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt;
+
+    @Column(name = "recovery_email_sent_at")
+    private OffsetDateTime recoveryEmailSentAt;
+
+    public void touch() {
+        this.updatedAt = OffsetDateTime.now();
+        this.recoveryEmailSentAt = null;
+    }
+
+    public void markRecoveryEmailSent() { this.recoveryEmailSentAt = OffsetDateTime.now(); }
+
     public void markAsConverted() {
         this.status = ShoppingCartStatus.CONVERTED;
+        touch();
     }
 
 

@@ -4,6 +4,10 @@ import com.github.f4b6a3.uuid.UuidCreator;
 import com.reydiazz.bodeko.core.order.core.model.entity.Order;
 import com.reydiazz.bodeko.core.order.core.model.enums.OrderStatus;
 import com.reydiazz.bodeko.core.order.core.repository.OrderRepository;
+import com.reydiazz.bodeko.core.order.items.repository.OrderItemRepository;
+import com.reydiazz.bodeko.core.inventory.model.enums.InventoryMovementType;
+import com.reydiazz.bodeko.core.inventory.service.InventoryMovementService;
+import com.reydiazz.bodeko.core.billing.service.SalesDocumentService;
 import com.reydiazz.bodeko.core.payment.component.PaymentMapper;
 import com.reydiazz.bodeko.core.payment.event.PaymentApprovedEvent;
 import com.reydiazz.bodeko.core.payment.exception.PaymentInvalidAmountException;
@@ -39,6 +43,9 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentGateway paymentGateway;
 
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final InventoryMovementService inventoryMovementService;
+    private final SalesDocumentService salesDocumentService;
     private final ApplicationEventPublisher eventPublisher;
     private final jakarta.persistence.EntityManager entityManager;
 
@@ -114,6 +121,12 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = findByTransactionId(transactionId);
         payment.markAsApproved();
         payment.getOrder().markAsPaid();
+        Order order = payment.getOrder();
+        orderItemRepository.findAllByOrderIdOrderByProductNameAsc(order.getId()).forEach(item ->
+                inventoryMovementService.recordOrderItem(item, InventoryMovementType.SALE, 0,
+                        "Pago aprobado; la reserva se convirtió en venta", order.getCustomer().getId(),
+                        order.getCustomer().getFullName(), order.getCustomer().getEmail(), "CUSTOMER"));
+        salesDocumentService.issueForPaidOrder(order.getId());
         eventPublisher.publishEvent(new PaymentApprovedEvent(payment.getOrder().getId()));
     }
 

@@ -17,8 +17,7 @@ export function StoresPage() {
   const visibleStores = stores.filter((store) =>
     `${store.name} ${store.subdomain}`.toLocaleLowerCase('es').includes(normalizedSearch),
   );
-  const accountDestination =
-    user?.role === 'ADMIN' ? '/admin' : user ? '/cuenta/ordenes' : '/registro';
+  const accountDestination = user?.role === 'ADMIN' ? '/admin' : '/registro';
 
   return (
     <div className="bodeko-landing" id="inicio">

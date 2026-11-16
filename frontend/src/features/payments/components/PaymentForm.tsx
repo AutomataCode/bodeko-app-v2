@@ -9,7 +9,6 @@ import { usePayment } from '../hooks/usePayment';
 import { loadCulqi } from '../services/culqiService';
 import type { CulqiInstance, Payment } from '../types';
 import { UserFacingError } from '@/utils/errors';
-import { APP_NAME } from '@/config';
 
 /** Datos de la orden que se pagará y función que recibe el resultado. */
 export interface PaymentFormProps {
@@ -161,7 +160,7 @@ export function PaymentForm({ storeId, storeName, currency, order, onPaid }: Pay
       </Button>
       <p className="trust">
         <LockKeyhole size={16} />
-        Los datos de tu tarjeta no se guardan en {APP_NAME}.
+        Los datos de tu tarjeta no se guardan en {storeName}.
       </p>
     </form>
   );

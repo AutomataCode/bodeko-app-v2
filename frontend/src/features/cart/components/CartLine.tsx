@@ -19,6 +19,9 @@ export function CartLine({ item, currency }: CartLineProps) {
       <ProductImage src={item.imageUrl} name={item.name} />
       <div className="cart-line-content">
         <h3>{item.name}</h3>
+        <p className="muted">
+          {Object.entries(item.options).map(([key, value]) => `${key}: ${value}`).join(' · ') || item.sku}
+        </p>
         <p>
           {money(item.chargedUnitPrice, currency)} por unidad{' '}
           {item.chargedUnitPrice < item.listUnitPrice && (
@@ -29,7 +32,7 @@ export function CartLine({ item, currency }: CartLineProps) {
           className="inline-form"
           onSubmit={(event) => {
             event.preventDefault();
-            if (isInteger(quantity, 1)) void cart.update(item.productId, Number(quantity));
+            if (isInteger(quantity, 1)) void cart.update(item.variantId, Number(quantity));
           }}
         >
           <Field
@@ -59,7 +62,7 @@ export function CartLine({ item, currency }: CartLineProps) {
           variant="secondary"
           aria-label={`Quitar ${item.name}`}
           disabled={cart.pending}
-          onClick={() => void cart.remove(item.productId)}
+          onClick={() => void cart.remove(item.variantId)}
         >
           <Trash2 size={16} />
           Quitar

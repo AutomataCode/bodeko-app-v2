@@ -5,7 +5,7 @@ import com.reydiazz.bodeko.core.shopping.cart.util.ShoppingCartRouters;
 import com.reydiazz.bodeko.core.shopping.cart.web.request.AddCartItemRequest;
 import com.reydiazz.bodeko.core.shopping.cart.web.request.EditCartItemQuantityRequest;
 import com.reydiazz.bodeko.core.shopping.cart.web.response.ShoppingCartResponse;
-import com.reydiazz.bodeko.security.config.UserPrincipal;
+import com.reydiazz.bodeko.security.config.CustomerPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,39 +23,39 @@ public class ShoppingCartController {
 
     @GetMapping
     public ResponseEntity<ShoppingCartResponse> getCart(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId) {
-        ShoppingCartResponse response = shoppingCartService.getCart(principal.user().getId(), storeId);
+        ShoppingCartResponse response = shoppingCartService.getCart(principal.customer().getId(), storeId);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping(ShoppingCartRouters.ITEMS)
     public ResponseEntity<ShoppingCartResponse> addItem(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId,
             @Valid @RequestBody AddCartItemRequest request) {
-        ShoppingCartResponse response = shoppingCartService.addItem(principal.user().getId(), storeId, request);
+        ShoppingCartResponse response = shoppingCartService.addItem(principal.customer().getId(), storeId, request);
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping(ShoppingCartRouters.ITEM_ID)
     public ResponseEntity<ShoppingCartResponse> updateItemQuantity(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId,
             @PathVariable UUID productId,
             @Valid @RequestBody EditCartItemQuantityRequest request) {
         ShoppingCartResponse response =
-                shoppingCartService.updateItemQuantity(principal.user().getId(), storeId, productId, request);
+                shoppingCartService.updateItemQuantity(principal.customer().getId(), storeId, productId, request);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping(ShoppingCartRouters.ITEM_ID)
     public ResponseEntity<ShoppingCartResponse> removeItem(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId,
             @PathVariable UUID productId) {
         ShoppingCartResponse response =
-                shoppingCartService.removeItem(principal.user().getId(), storeId, productId);
+                shoppingCartService.removeItem(principal.customer().getId(), storeId, productId);
         return ResponseEntity.ok(response);
     }
 

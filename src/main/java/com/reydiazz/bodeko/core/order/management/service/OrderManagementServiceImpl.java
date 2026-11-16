@@ -2,6 +2,9 @@ package com.reydiazz.bodeko.core.order.management.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.reydiazz.bodeko.core.inventory.service.InventoryService;
+import com.reydiazz.bodeko.core.inventory.service.InventoryMovementService;
+import com.reydiazz.bodeko.core.inventory.model.enums.InventoryMovementType;
+import com.reydiazz.bodeko.core.billing.service.SalesDocumentService;
 import com.reydiazz.bodeko.core.order.core.component.OrderMapper;
 import com.reydiazz.bodeko.core.order.core.model.entity.Order;
 import com.reydiazz.bodeko.core.order.core.model.enums.OrderStatus;
@@ -54,6 +57,8 @@ public class OrderManagementServiceImpl implements OrderManagementService {
     private final OrderManagementMapper orderManagementMapper;
 
     private final InventoryService inventoryService;
+    private final InventoryMovementService inventoryMovementService;
+    private final SalesDocumentService salesDocumentService;
     private final PaymentService paymentService;
     private final jakarta.persistence.EntityManager entityManager;
 
@@ -97,21 +102,31 @@ public class OrderManagementServiceImpl implements OrderManagementService {
 
         List<OrderItem> items = orderItemRepository.findAllByOrderIdOrderByProductNameAsc(order.getId());
         if (to == OrderStatus.CANCELLED) {
-            restoreStock(items);
+            restoreStock(items, from, adminId, order);
         }
         order.changeStatus(to);
         recordTransition(order.getId(), from, to, adminId);
 
         if (to == OrderStatus.CANCELLED && from == OrderStatus.PAID) {
             paymentService.refundApprovedPayment(order.getId());
+            salesDocumentService.voidForOrder(order.getId());
         }
         return orderMapper.toResponse(order, items);
     }
 
-    private void restoreStock(List<OrderItem> items) {
-        items.stream()
-                .sorted(Comparator.comparing(OrderItem::getProductId))
-                .forEach(item -> inventoryService.increaseStock(item.getProductId(), item.getQuantity()));
+    private void restoreStock(List<OrderItem> items, OrderStatus previousStatus, UUID adminId, Order order) {
+        InventoryMovementType type = previousStatus == OrderStatus.PAID
+                ? InventoryMovementType.RETURN : InventoryMovementType.RESERVATION_RELEASE;
+        boolean cancelledByCustomer = order.getCustomer().getId().equals(adminId);
+        String actorName = cancelledByCustomer ? order.getCustomer().getFullName() : "Administrador de tienda";
+        String actorEmail = cancelledByCustomer ? order.getCustomer().getEmail() : null;
+        String actorRole = cancelledByCustomer ? "CUSTOMER" : "ADMIN";
+        items.stream().sorted(Comparator.comparing(OrderItem::getVariantId)).forEach(item -> {
+            inventoryService.increaseVariantStock(item.getVariantId(), item.getQuantity());
+            inventoryMovementService.recordOrderItem(item, type, item.getQuantity(),
+                    previousStatus == OrderStatus.PAID ? "Devolución por cancelación de venta" : "Reserva liberada por cancelación",
+                    adminId, actorName, actorEmail, actorRole);
+        });
     }
 
     private void recordTransition(UUID orderId, OrderStatus from, OrderStatus to, UUID adminId) {

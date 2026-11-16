@@ -5,6 +5,7 @@ import { useAction } from '@/core/hooks/useAction';
 import { isHttpUrl, isMoney } from '@/utils/validation';
 import { productService } from '../services/productService';
 import type { Product } from '../types';
+import { ProductVariantsPanel } from './ProductVariantsPanel';
 /** Datos del editor. Sin product se crea un producto en borrador. */
 export interface ProductFormProps {
   storeId: string;
@@ -54,6 +55,7 @@ export function ProductForm({ storeId, product, onSaved }: ProductFormProps) {
     if (result) onSaved();
   }
   return (
+    <div className="form-stack">
     <form noValidate className="form-stack" onSubmit={(event) => void submit(event)}>
       <ErrorNotice message={action.error} />
       <Field
@@ -122,5 +124,7 @@ export function ProductForm({ storeId, product, onSaved }: ProductFormProps) {
         {product ? 'Guardar cambios' : 'Guardar como borrador'}
       </Button>
     </form>
+      {product && <ProductVariantsPanel storeId={storeId} productId={product.id} />}
+    </div>
   );
 }

@@ -38,6 +38,7 @@ public class ProductCatalogSpecifications {
             Root<Inventory> inventory = subquery.from(Inventory.class);
             subquery.select(builder.literal(1)).where(
                     builder.equal(inventory.get("product").get("id"), root.get("id")),
+                    builder.isTrue(inventory.get("variant").get("isActive")),
                     builder.greaterThan(inventory.<Integer>get("quantity"), 0)
             );
             return builder.exists(subquery);

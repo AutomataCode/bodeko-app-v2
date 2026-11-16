@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CreditCard, RefreshCw, Store, X } from 'lucide-react';
+import { ArrowLeft, CreditCard, RefreshCw, Store, X, FileText } from 'lucide-react';
 import { Button, ErrorNotice, Loading } from '@/core/components';
 import { OrderDetails } from '@/features/orders';
 import { useCustomerOrder } from './hooks/useCustomerOrder';
@@ -15,7 +15,7 @@ export function CustomerOrderDetailPage() {
   if (!resource.data)
     return (
       <>
-        <Link className="back-link" to="/cuenta/ordenes">
+        <Link className="back-link" to=".." relative="path">
           <ArrowLeft size={15} />
           Mis órdenes
         </Link>
@@ -26,7 +26,7 @@ export function CustomerOrderDetailPage() {
   const canCancel = order.status === 'PENDING' || order.status === 'PAID';
   return (
     <>
-      <Link className="back-link" to="/cuenta/ordenes">
+      <Link className="back-link" to=".." relative="path">
         <ArrowLeft size={15} />
         Volver a mis órdenes
       </Link>
@@ -62,6 +62,11 @@ export function CustomerOrderDetailPage() {
           </p>
         </div>
         <div className="actions">
+          {['PAID', 'SHIPPED', 'DELIVERED'].includes(order.status) && (
+            <Link className="button secondary" to={`/tienda/${storeSubdomain}/cuenta/ordenes/${order.id}/comprobante`}>
+              <FileText size={15} /> Ver boleta o factura
+            </Link>
+          )}
           {canCancel && (
             <Button
               variant="secondary"

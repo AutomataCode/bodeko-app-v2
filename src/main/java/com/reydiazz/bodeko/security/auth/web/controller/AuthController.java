@@ -15,6 +15,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping(AuthRoutes.API_BASE)
 @RequiredArgsConstructor
@@ -28,15 +30,22 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping(AuthRoutes.REGISTER_CUSTOMER)
-    public ResponseEntity<RegisterResponse> registerCustomer(@Valid @RequestBody RegisterCustomerRequest request) {
-        RegisterResponse response = authService.registerCustomer(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
     @PostMapping(AuthRoutes.REGISTER_OWNER)
     public ResponseEntity<RegisterResponse> registerOwner(@Valid @RequestBody RegisterOwnerRequest request) {
         RegisterResponse response = authService.registerOwner(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(AuthRoutes.STORE_LOGIN)
+    public ResponseEntity<LoginResponse> loginCustomer(
+            @PathVariable UUID storeId, @Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.loginCustomer(storeId, request));
+    }
+
+    @PostMapping(AuthRoutes.STORE_REGISTER)
+    public ResponseEntity<RegisterResponse> registerCustomer(
+            @PathVariable UUID storeId, @Valid @RequestBody RegisterCustomerRequest request) {
+        RegisterResponse response = authService.registerCustomer(storeId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

@@ -8,6 +8,16 @@ export interface CatalogProduct {
   basePrice: number;
   offerPrice: number | null;
   inStock: boolean;
+  variants?: CatalogVariant[];
+}
+/** Variante concreta disponible para selección y compra. */
+export interface CatalogVariant {
+  id: string;
+  sku: string;
+  options: Record<string, string>;
+  basePrice: number;
+  offerPrice: number | null;
+  quantity: number;
 }
 /** Filtros y página enviados al catálogo público. */
 export interface CatalogFilters {

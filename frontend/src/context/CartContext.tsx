@@ -21,9 +21,9 @@ interface CartState {
   pending: boolean;
   error: string;
   reload: () => void;
-  add: (id: string, quantity?: number) => Promise<boolean>;
-  update: (id: string, quantity: number) => Promise<boolean>;
-  remove: (id: string) => Promise<boolean>;
+  add: (productId: string, variantId: string, quantity?: number) => Promise<boolean>;
+  update: (variantId: string, quantity: number) => Promise<boolean>;
+  remove: (variantId: string) => Promise<boolean>;
 }
 const CartContext = createContext<CartState | null>(null);
 /** Carga el carrito e ignora respuestas de una cuenta o tienda anterior. */
@@ -95,12 +95,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         pending,
         error,
         reload,
-        add: (id, quantity = 1) =>
-          mutate(() => cartService.add(store.id, id, quantity), 'Producto agregado al carrito.'),
-        update: (id, quantity) =>
-          mutate(() => cartService.update(store.id, id, quantity), 'Cantidad actualizada.'),
-        remove: (id) =>
-          mutate(() => cartService.remove(store.id, id), 'Producto eliminado del carrito.'),
+        add: (productId, variantId, quantity = 1) =>
+          mutate(() => cartService.add(store.id, productId, variantId, quantity), 'Producto agregado al carrito.'),
+        update: (variantId, quantity) =>
+          mutate(() => cartService.update(store.id, variantId, quantity), 'Cantidad actualizada.'),
+        remove: (variantId) =>
+          mutate(() => cartService.remove(store.id, variantId), 'Producto eliminado del carrito.'),
       }}
     >
       {children}

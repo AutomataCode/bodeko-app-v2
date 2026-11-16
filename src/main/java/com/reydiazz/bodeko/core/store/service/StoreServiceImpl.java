@@ -2,9 +2,9 @@ package com.reydiazz.bodeko.core.store.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.reydiazz.bodeko.core.store.component.StoreMapper;
+import com.reydiazz.bodeko.core.billing.service.BillingIssuerService;
 import com.reydiazz.bodeko.core.store.exception.StoreNotFoundException;
 import com.reydiazz.bodeko.core.store.exception.StoreSubdomainExistsException;
-import com.reydiazz.bodeko.core.store.exception.StoreTaxIdExistsException;
 import com.reydiazz.bodeko.core.store.model.entity.Store;
 import com.reydiazz.bodeko.core.store.repository.StoreRepository;
 import com.reydiazz.bodeko.core.store.web.request.CreateStoreRequest;
@@ -27,6 +27,7 @@ public class StoreServiceImpl implements StoreService {
     private final StoreMapper storeMapper;
 
     private final UserService userService;
+    private final BillingIssuerService billingIssuerService;
 
     @Override
     @Transactional
@@ -36,14 +37,15 @@ public class StoreServiceImpl implements StoreService {
         }
         String taxId = request.taxId().trim();
         String subdomain = request.subdomain().trim().toLowerCase(java.util.Locale.ROOT);
-        verifyTaxId(taxId);
         verifySubdomain(subdomain);
+        var issuer = billingIssuerService.getOrCreate(ownerId, taxId, request.legalName());
         Store store = Store.builder()
                 .id(UuidCreator.getTimeOrderedEpoch())
                 .owner(userService.getReferenceById(ownerId))
                 .name(com.reydiazz.bodeko.shared.validation.NormalizedText.clean(request.name()))
                 .taxId(taxId)
                 .legalName(request.legalName().trim())
+                .billingIssuer(issuer)
                 .subdomain(subdomain)
                 .createdAt(OffsetDateTime.now())
                 .build();
@@ -84,12 +86,6 @@ public class StoreServiceImpl implements StoreService {
     @Override
     public Store getReferenceById(UUID id) {
         return storeRepository.getReferenceById(id);
-    }
-
-    private void verifyTaxId(String taxId) {
-        if (storeRepository.existsByTaxId(taxId)) {
-            throw new StoreTaxIdExistsException();
-        }
     }
 
     private void verifySubdomain(String subdomain) {

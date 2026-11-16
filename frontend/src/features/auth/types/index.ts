@@ -10,6 +10,7 @@ export interface Registration extends Credentials {
   phoneNumber?: string;
   documentType?: DocumentType;
   documentNumber?: string;
+  marketingConsent?: boolean;
 }
 /** Token recibido al iniciar sesión o crear una cuenta. */
 export interface TokenResponse {

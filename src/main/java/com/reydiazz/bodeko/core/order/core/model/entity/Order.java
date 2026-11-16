@@ -4,7 +4,7 @@ import com.reydiazz.bodeko.core.order.core.model.enums.CustomerDocumentType;
 import com.reydiazz.bodeko.core.order.core.model.enums.InvoiceType;
 import com.reydiazz.bodeko.core.order.core.model.enums.OrderStatus;
 import com.reydiazz.bodeko.core.store.model.entity.Store;
-import com.reydiazz.bodeko.core.user.core.model.entity.User;
+import com.reydiazz.bodeko.core.customer.model.entity.Customer;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -56,7 +56,7 @@ public class Order {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id",nullable = false)
-    private User customer;
+    private Customer customer;
 
     @Column(name = "order_number",nullable = false,unique = true)
     private String orderNumber;
@@ -99,12 +99,32 @@ public class Order {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "tracking_carrier", length = 100)
+    private String trackingCarrier;
+
+    @Column(name = "tracking_number", length = 120)
+    private String trackingNumber;
+
+    @Column(name = "tracking_url", length = 500)
+    private String trackingUrl;
+
+    @Column(name = "estimated_delivery_at")
+    private OffsetDateTime estimatedDeliveryAt;
+
     public void markAsPaid() {
         this.status = OrderStatus.PAID;
     }
 
     public void changeStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    /** Actualiza los datos de seguimiento del envío. */
+    public void updateTracking(String carrier, String number, String url, OffsetDateTime estimatedDeliveryAt) {
+        this.trackingCarrier = carrier;
+        this.trackingNumber = number;
+        this.trackingUrl = url;
+        this.estimatedDeliveryAt = estimatedDeliveryAt;
     }
 
 }

@@ -1,6 +1,8 @@
 package com.reydiazz.bodeko.security.auth.component;
 
+import com.reydiazz.bodeko.core.customer.model.entity.Customer;
 import com.reydiazz.bodeko.core.user.core.model.entity.User;
+import com.reydiazz.bodeko.core.user.core.model.enums.UserRole;
 import com.reydiazz.bodeko.security.auth.web.response.AuthResponse;
 import com.reydiazz.bodeko.security.auth.web.response.LoginResponse;
 import com.reydiazz.bodeko.security.auth.web.response.RegisterResponse;
@@ -15,7 +17,19 @@ public class AuthMapper {
                 user.getFullName(),
                 user.getEmail(),
                 user.getRole(),
-                user.getPhoneNumber()
+                user.getPhoneNumber(),
+                null
+        );
+    }
+
+    public AuthResponse toResponse(Customer customer) {
+        return new AuthResponse(
+                customer.getId(),
+                customer.getFullName(),
+                customer.getEmail(),
+                UserRole.CUSTOMER,
+                customer.getPhoneNumber(),
+                customer.getStoreId()
         );
     }
 

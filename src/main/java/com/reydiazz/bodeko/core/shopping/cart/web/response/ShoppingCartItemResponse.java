@@ -5,6 +5,9 @@ import java.util.UUID;
 
 public record ShoppingCartItemResponse(
         UUID productId,
+        UUID variantId,
+        String sku,
+        java.util.Map<String, String> options,
         String name,
         String imageUrl,
         int quantity,

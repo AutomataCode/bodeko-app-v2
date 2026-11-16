@@ -9,6 +9,9 @@ import {
   ShoppingBag,
   Tag,
   ExternalLink,
+  History,
+  Trash2,
+  Truck,
 } from 'lucide-react';
 import { ErrorNotice, Loading } from '@/core/components';
 import { useStores } from '@/features/stores';
@@ -19,6 +22,9 @@ const sections = [
   { path: '/productos', label: 'Productos', icon: Package },
   { path: '/categorias', label: 'Categorías', icon: LayoutGrid },
   { path: '/inventario', label: 'Inventario', icon: Boxes },
+  { path: '/inventario/movimientos', label: 'Movimientos', icon: History },
+  { path: '/inventario/mermas', label: 'Mermas', icon: Trash2 },
+  { path: '/compras', label: 'Compras', icon: Truck },
   { path: '/ofertas', label: 'Ofertas', icon: Tag },
   { path: '/ordenes', label: 'Órdenes', icon: ShoppingBag },
   { path: '/configuracion', label: 'Configuración', icon: Settings },
@@ -48,7 +54,7 @@ export function AdminLayout() {
         </div>
         <nav aria-label="Administración de tienda">
           {sections.map(({ path, label, icon: Icon }) => (
-            <NavLink key={path} end={!path} to={`/admin/${store.id}${path}`}>
+            <NavLink key={path} end to={`/admin/${store.id}${path}`}>
               <Icon size={18} />
               {label}
             </NavLink>

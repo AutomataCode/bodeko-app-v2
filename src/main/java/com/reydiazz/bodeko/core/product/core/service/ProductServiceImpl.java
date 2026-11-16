@@ -16,6 +16,8 @@ import com.reydiazz.bodeko.core.store.service.StoreService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.reydiazz.bodeko.core.product.variant.model.ProductVariant;
+import com.reydiazz.bodeko.core.product.variant.repository.ProductVariantRepository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -31,6 +33,7 @@ public class ProductServiceImpl implements ProductService {
     private final StoreService storeService;
     private final CategoryService categoryService;
     private final InventoryService inventoryService;
+    private final ProductVariantRepository productVariantRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -63,6 +66,11 @@ public class ProductServiceImpl implements ProductService {
                 .createdAt(OffsetDateTime.now())
                 .build();
         Product productSaved = productRepository.save(product);
+        productVariantRepository.save(ProductVariant.builder()
+                .id(productSaved.getId()).productId(productSaved.getId()).storeId(storeId)
+                .product(productSaved).sku("BOD-" + productSaved.getId().toString().replace("-", "").substring(0, 24).toUpperCase())
+                .options(java.util.Map.of()).optionsKey("DEFAULT").basePrice(productSaved.getBasePrice())
+                .isDefault(true).isActive(true).createdAt(productSaved.getCreatedAt()).build());
         inventoryService.createForProduct(productSaved);
         return productMapper.toResponse(productSaved);
     }
@@ -80,6 +88,8 @@ public class ProductServiceImpl implements ProductService {
                 request.taxExempt(),
                 resolveCategory(request.categoryId(), storeId)
         );
+        productVariantRepository.findByProductIdAndIsDefaultTrue(id)
+                .ifPresent(variant -> variant.updateBasePrice(request.basePrice()));
         return productMapper.toResponse(product);
     }
 

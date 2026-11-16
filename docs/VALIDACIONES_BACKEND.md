@@ -2,6 +2,8 @@
 
 Esta revisión parte de la carpeta `bodeko` compartida con el equipo. No publica ni crea commits. No modifica las migraciones V1-V5 ni utiliza la base de trabajo del equipo para las pruebas.
 
+El ZIP compartido después añadió registro y autenticación de clientes por tienda. Ese flujo está documentado en `docs/AUTENTICACION_CLIENTES_POR_TIENDA.md` y se incorpora mediante V9. Antes de ejecutar V9, revisar cuentas antiguas; la migración se detiene si encuentra clientes sin carrito ni órdenes, porque no puede asignarles una tienda automáticamente.
+
 ## Cambios solicitados
 
 1. **Tiendas:** RUC y subdominio continúan siendo únicos globalmente. Se añade nombre único por propietario, ignorando mayúsculas y espacios sobrantes. Propietarios distintos pueden tener el mismo nombre comercial; el RUC y el subdominio no se pueden repetir.

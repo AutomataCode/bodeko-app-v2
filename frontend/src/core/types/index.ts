@@ -9,7 +9,7 @@ export interface Page<T> {
   totalPages: number;
 }
 /** Roles exactos de Spring Security. */
-export type Role = 'ADMIN' | 'CUSTOMER';
+export type Role = 'ADMIN' | 'SUPER_ADMIN' | 'CUSTOMER';
 /** Usuario autenticado; nunca contiene contraseña. */
 export interface User {
   id: Id;
@@ -17,6 +17,8 @@ export interface User {
   email: string;
   role: Role;
   phoneNumber: string | null;
+  /** Tienda donde está registrado el cliente; null para propietarios. */
+  storeId: Id | null;
 }
 /** Opciones de los selectores de los formularios. */
 export interface Option {

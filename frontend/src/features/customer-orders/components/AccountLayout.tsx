@@ -1,16 +1,19 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChevronRight, LogOut, ShoppingBag, Store, UserRound } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
+import { useStore } from '@/context/StoreContext';
 
 /** Organiza el área del cliente con un menú lateral. */
 export function AccountLayout() {
   const { user, logout } = useSession();
   const { pathname } = useLocation();
+  const store = useStore();
+  const base = `/tienda/${store.subdomain}`;
   const section = pathname.includes('/datos') ? 'Datos personales' : 'Mis órdenes';
   return (
     <div className="customer-account">
       <div className="account-breadcrumb">
-        <Link to="/">Inicio</Link>
+        <Link to={base}>Inicio</Link>
         <ChevronRight size={13} />
         <span>Mi cuenta</span>
         <ChevronRight size={13} />
@@ -25,30 +28,30 @@ export function AccountLayout() {
             <div>
               <small>Hola,</small>
               <strong>{user?.fullName}</strong>
-              <span>Bienvenido a tu cuenta</span>
+              <span>Tu cuenta en {store.name}</span>
             </div>
           </div>
           <nav aria-label="Mi cuenta">
-            <NavLink to="/cuenta/datos">
+            <NavLink to={`${base}/cuenta/datos`}>
               <UserRound size={19} />
               <span>Datos personales</span>
               <ChevronRight size={16} />
             </NavLink>
-            <NavLink to="/cuenta/ordenes">
+            <NavLink to={`${base}/cuenta/ordenes`}>
               <ShoppingBag size={19} />
               <span>Mis órdenes</span>
               <ChevronRight size={16} />
             </NavLink>
-            <Link to="/">
+            <Link to={base}>
               <Store size={19} />
-              <span>Explorar tiendas</span>
+              <span>Seguir comprando</span>
               <ChevronRight size={16} />
             </Link>
             <button
               type="button"
               onClick={() => {
                 logout();
-                window.location.replace('/');
+                window.location.replace(base);
               }}
             >
               <LogOut size={19} />

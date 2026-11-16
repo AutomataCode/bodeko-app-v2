@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, RefreshCw, ShoppingBag } from 'lucide-react';
 import { Button, Empty, ErrorNotice, Loading, Pagination } from '@/core/components';
 import { labels } from '@/utils/format';
+import { useStore } from '@/context/StoreContext';
 import { useCustomerOrders } from './hooks/useCustomerOrders';
 import { CustomerOrderCard } from './components/CustomerOrderCard';
 import { CancelOrderDialog } from './components/CancelOrderDialog';
@@ -14,6 +15,7 @@ const statuses = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 /** Lista las compras del cliente y permite pagar o cancelar cuando corresponde. */
 export function CustomerOrdersPage() {
   const [query, setQuery] = useSearchParams();
+  const store = useStore();
   const requestedStatus = query.get('estado') || '';
   const status = statuses.includes(requestedStatus) ? requestedStatus : '';
   const page = Math.min(2147483647, Math.max(0, Math.floor(Number(query.get('pagina')) || 0)));
@@ -35,8 +37,8 @@ export function CustomerOrdersPage() {
           <h1>Mis órdenes</h1>
           <p>Revisa tus compras y gestiona cada pedido desde aquí.</p>
         </div>
-        <Link className="button secondary" to="/">
-          Explorar tiendas <ArrowUpRight size={16} />
+        <Link className="button secondary" to={`/tienda/${store.subdomain}`}>
+          Seguir comprando <ArrowUpRight size={16} />
         </Link>
       </header>
       <div className="account-section-card">
@@ -72,7 +74,7 @@ export function CustomerOrdersPage() {
               <p className="order-result-count" role="status">
                 {resource.data.totalElements}{' '}
                 {resource.data.totalElements === 1 ? 'orden encontrada' : 'órdenes encontradas'}
-                {status ? ` · ${labels[status]}` : ' en todas tus tiendas'}
+                {status ? ` · ${labels[status]}` : ` en ${store.name}`}
               </p>
               {!resource.data.content.length ? (
                 <Empty
@@ -90,8 +92,8 @@ export function CustomerOrdersPage() {
                       Ver todas mis órdenes
                     </Button>
                   ) : (
-                    <Link className="button primary" to="/">
-                      Descubrir tiendas
+                    <Link className="button primary" to={`/tienda/${store.subdomain}`}>
+                      Ver productos
                     </Link>
                   )}
                   {page > 0 && (

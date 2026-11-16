@@ -18,7 +18,7 @@ import com.reydiazz.bodeko.core.shopping.cart.web.request.AddCartItemRequest;
 import com.reydiazz.bodeko.core.shopping.cart.web.request.EditCartItemQuantityRequest;
 import com.reydiazz.bodeko.core.shopping.cart.web.response.ShoppingCartResponse;
 import com.reydiazz.bodeko.core.store.service.StoreService;
-import com.reydiazz.bodeko.core.user.core.service.UserService;
+import com.reydiazz.bodeko.core.customer.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,10 +41,11 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     private final ShoppingCartMapper shoppingCartMapper;
 
     private final StoreService storeService;
-    private final UserService userService;
+    private final CustomerService customerService;
     private final org.springframework.jdbc.core.JdbcTemplate cartLocks;
     private final ProductService productService;
     private final ProductOfferService productOfferService;
+    private final com.reydiazz.bodeko.core.product.variant.repository.ProductVariantRepository variantRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -61,9 +62,14 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
         storeService.findEntityById(storeId);
         Product product = productService.findEntityById(request.productId(), storeId);
         verifyAvailable(product);
+        UUID variantId = request.variantId() != null ? request.variantId() : product.getId();
+        com.reydiazz.bodeko.core.product.variant.model.ProductVariant variant = variantRepository
+                .findByIdAndProductIdAndStoreId(variantId, product.getId(), storeId)
+                .filter(com.reydiazz.bodeko.core.product.variant.model.ProductVariant::isActive)
+                .orElseThrow(ShoppingCartProductNotAvailableException::new);
         ShoppingCart cart = shoppingCartRepository.findByUserIdAndStoreIdAndStatusForUpdate(userId, storeId, ShoppingCartStatus.OPEN).orElseGet(() -> createCart(userId, storeId));
         int quantity = request.quantity() != null ? request.quantity() : DEFAULT_QUANTITY;
-        Optional<ShoppingCartItem> existing = shoppingCartItemRepository.findByCartIdAndProductId(cart.getId(), product.getId());
+        Optional<ShoppingCartItem> existing = shoppingCartItemRepository.findByCartIdAndVariantId(cart.getId(), variantId);
         if (existing.isPresent()) {
             if ((long)existing.get().getQuantity()+quantity > 10000) {
                 throw new com.reydiazz.bodeko.shared.exception.BusinessException(com.reydiazz.bodeko.shared.validation.ValidationError.QUANTITY_LIMIT);
@@ -73,6 +79,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
             ShoppingCartItem item = ShoppingCartItem.builder()
                     .cartId(cart.getId())
                     .productId(product.getId())
+                    .variantId(variantId)
                     .storeId(storeId)
                     .cart(cart)
                     .product(product)
@@ -80,6 +87,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
                     .build();
             shoppingCartItemRepository.save(item);
         }
+        cart.touch();
         return buildResponse(cart, storeId);
     }
 
@@ -94,6 +102,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
         ShoppingCart cart = findOpenCartOrThrow(userId, storeId);
         ShoppingCartItem item = findItemOrThrow(cart.getId(), productId);
         item.updateQuantity(request.quantity());
+        cart.touch();
         return buildResponse(cart, storeId);
     }
 
@@ -103,6 +112,7 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
         ShoppingCart cart = findOpenCartOrThrow(userId, storeId);
         ShoppingCartItem item = findItemOrThrow(cart.getId(), productId);
         shoppingCartItemRepository.delete(item);
+        cart.touch();
         return buildResponse(cart, storeId);
     }
 
@@ -135,16 +145,17 @@ public class ShoppingCartServiceImpl implements ShoppingCartService {
     }
 
     private ShoppingCartItem findItemOrThrow(UUID cartId, UUID productId) {
-        return shoppingCartItemRepository.findByCartIdAndProductId(cartId, productId)
+        return shoppingCartItemRepository.findByCartIdAndVariantId(cartId, productId)
                 .orElseThrow(ShoppingCartItemNotFoundException::new);
     }
 
     private ShoppingCart createCart(UUID userId, UUID storeId) {
         ShoppingCart cart = ShoppingCart.builder()
                 .id(UuidCreator.getTimeOrderedEpoch())
-                .user(userService.getReferenceById(userId))
+                .user(customerService.getReferenceById(userId))
                 .store(storeService.getReferenceById(storeId))
                 .createdAt(OffsetDateTime.now())
+                .updatedAt(OffsetDateTime.now())
                 .build();
         return shoppingCartRepository.save(cart);
     }

@@ -4,7 +4,7 @@ import com.reydiazz.bodeko.core.order.core.service.OrderService;
 import com.reydiazz.bodeko.core.order.core.util.OrderRouters;
 import com.reydiazz.bodeko.core.order.core.web.request.CheckoutRequest;
 import com.reydiazz.bodeko.core.order.core.web.response.OrderResponse;
-import com.reydiazz.bodeko.security.config.UserPrincipal;
+import com.reydiazz.bodeko.security.config.CustomerPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,20 +28,20 @@ public class OrderController {
 
     @org.springframework.web.bind.annotation.GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getByCustomer(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId, @PathVariable UUID orderId) {
-        return ResponseEntity.ok(orderService.getByCustomer(principal.user().getId(), storeId, orderId));
+        return ResponseEntity.ok(orderService.getByCustomer(principal.customer().getId(), storeId, orderId));
     }
 
     @PostMapping
     public ResponseEntity<OrderResponse> checkout(
-            @AuthenticationPrincipal UserPrincipal principal,
+            @AuthenticationPrincipal CustomerPrincipal principal,
             @PathVariable UUID storeId,
             @org.springframework.web.bind.annotation.RequestHeader(value="Idempotency-Key",required=false) String idempotencyKey,
             @Valid @RequestBody CheckoutRequest request) {
-        OrderResponse response = idempotency.execute(principal.user().getId(), "checkout:"+principal.user().getId()+":"+storeId,
+        OrderResponse response = idempotency.execute(principal.customer().getId(), "checkout:"+principal.customer().getId()+":"+storeId,
                 "checkout",idempotencyKey,request,OrderResponse.class,false,
-                () -> orderService.checkout(principal.user().getId(),storeId,request));
+                () -> orderService.checkout(principal.customer().getId(),storeId,request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

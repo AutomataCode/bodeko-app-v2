@@ -14,4 +14,6 @@ export const orderService = {
     (await api.get<Order>(`/stores/${storeId}/orders/${orderId}`)).data,
   status: async (storeId: string, orderId: string, status: OrderStatus) =>
     idempotentRequest<Order>('patch', `/stores/${storeId}/orders/${orderId}/status`, { status }),
+  tracking: async (storeId: string, orderId: string, body: { carrier: string; trackingNumber: string; trackingUrl: string; estimatedDeliveryAt: string | null }) =>
+    idempotentRequest<Order>('patch', `/stores/${storeId}/orders/${orderId}/tracking`, body),
 };

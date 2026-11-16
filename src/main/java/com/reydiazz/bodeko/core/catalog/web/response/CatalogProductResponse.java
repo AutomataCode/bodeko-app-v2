@@ -11,6 +11,7 @@ public record CatalogProductResponse(
         String imageUrl,
         BigDecimal basePrice,
         BigDecimal offerPrice,
-        boolean inStock
+        boolean inStock,
+        java.util.List<CatalogVariantResponse> variants
 ) {
 }

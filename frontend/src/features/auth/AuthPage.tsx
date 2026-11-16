@@ -6,13 +6,16 @@ export function AuthPage({ register = false }: { register?: boolean }) {
   return (
     <div className="auth-layout">
       <div className="auth-copy">
-        <span className="eyebrow">COMERCIO LOCAL, CONECTADO</span>
+        <span className="eyebrow">PARA PROPIETARIOS</span>
         <h1>
-          Una cuenta.
+          Tu negocio.
           <br />
-          Muchas posibilidades.
+          Tu propia tienda.
         </h1>
-        <p>Descubre tiendas, encuentra lo que necesitas y lleva tu negocio al siguiente nivel.</p>
+        <p>
+          Crea tu tienda en minutos. Tus clientes se registran directamente en ella, con tu nombre y
+          tu marca.
+        </p>
         <div className="auth-mark">
           <Store size={72} />
           <span>{APP_NAME}</span>
@@ -22,8 +25,8 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         <h2>{register ? 'Crea tu cuenta' : 'Te damos la bienvenida'}</h2>
         <p className="muted">
           {register
-            ? 'Empieza a comprar o a gestionar tu tienda.'
-            : 'Ingresa para continuar con tu cuenta.'}
+            ? 'Registra tu cuenta de propietario para crear y gestionar tu tienda.'
+            : 'Ingresa para gestionar tu negocio.'}
         </p>
         <AuthForm key={register ? 'register' : 'login'} register={register} />
       </section>

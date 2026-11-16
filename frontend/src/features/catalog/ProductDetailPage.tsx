@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
-import { Button, ErrorNotice, Field, Loading, ProductImage } from '@/core/components';
+import { Button, ErrorNotice, Field, Loading, ProductImage, Select } from '@/core/components';
 import { useResource } from '@/core/hooks/useResource';
 import { useSession } from '@/context/SessionContext';
 import { useStore } from '@/context/StoreContext';
@@ -16,12 +16,20 @@ export function ProductDetailPage() {
   const cart = useCart();
   const { user } = useSession();
   const [quantity, setQuantity] = useState('1');
+  const [selectedVariantId, setSelectedVariantId] = useState('');
   const resource = useResource(
     useCallback(() => catalogService.detail(store.id, productId), [store.id, productId]),
   );
   if (resource.loading) return <Loading />;
   if (!resource.data) return <ErrorNotice message={resource.error} retry={resource.reload} />;
   const product = resource.data;
+  const variants = product.variants ?? [];
+  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId)
+    ?? variants.find((variant) => variant.quantity > 0)
+    ?? variants[0];
+  const displayedPrice = selectedVariant?.offerPrice ?? selectedVariant?.basePrice ?? product.offerPrice ?? product.basePrice;
+  const listPrice = selectedVariant?.basePrice ?? product.basePrice;
+  const quantityValid = isInteger(quantity, 1) && (!selectedVariant || Number(quantity) <= selectedVariant.quantity);
   return (
     <>
       <Link className="back-link" to={`/tienda/${store.subdomain}`}>
@@ -36,15 +44,26 @@ export function ProductDetailPage() {
           <span className="eyebrow">{store.name}</span>
           <h1>{product.name}</h1>
           <div className="price">
-            <strong>{money(product.offerPrice ?? product.basePrice, store.currency)}</strong>
-            {product.offerPrice !== null && <del>{money(product.basePrice, store.currency)}</del>}
+            <strong>{money(displayedPrice, store.currency)}</strong>
+            {displayedPrice < listPrice && <del>{money(listPrice, store.currency)}</del>}
           </div>
-          <span className={`badge ${product.inStock ? 'badge-active' : ''}`}>
-            {product.inStock ? 'En stock' : 'Agotado'}
+          <span className={`badge ${(selectedVariant?.quantity ?? (product.inStock ? 1 : 0)) > 0 ? 'badge-active' : ''}`}>
+            {(selectedVariant?.quantity ?? (product.inStock ? 1 : 0)) > 0 ? 'En stock' : 'Agotado'}
           </span>
           <p className="description">
             {product.description || 'Este producto todavía no tiene descripción.'}
           </p>
+          {variants.length > 0 && (
+            <Select
+              label="Presentación, talla o color"
+              value={selectedVariant?.id ?? ''}
+              onChange={setSelectedVariantId}
+              options={variants.map((variant) => ({
+                value: variant.id,
+                label: `${Object.entries(variant.options).map(([key, value]) => `${key}: ${value}`).join(' · ') || 'Presentación estándar'} · SKU ${variant.sku}${variant.quantity > 0 ? '' : ' · Agotado'}`,
+              }))}
+            />
+          )}
           <Field
             label="Cantidad"
             example="2"
@@ -53,12 +72,12 @@ export function ProductDetailPage() {
             maxLength={10}
             value={quantity}
             onChange={setQuantity}
-            error={!isInteger(quantity, 1) ? 'Ingresa un entero mayor que cero.' : ''}
+            error={!isInteger(quantity, 1) ? 'Ingresa un entero mayor que cero.' : !quantityValid ? 'La cantidad supera las existencias disponibles.' : ''}
           />
           {!user ? (
             <Link
               className="button primary"
-              to={`/ingresar?next=${encodeURIComponent(`/tienda/${store.subdomain}/producto/${product.id}`)}`}
+              to={`/tienda/${store.subdomain}/ingresar?next=${encodeURIComponent(`/tienda/${store.subdomain}/producto/${product.id}`)}`}
             >
               Inicia sesión para comprar
             </Link>
@@ -66,8 +85,8 @@ export function ProductDetailPage() {
             user.role === 'CUSTOMER' && (
               <Button
                 pending={cart.pending}
-                disabled={!product.inStock || !isInteger(quantity, 1) || cart.loading}
-                onClick={() => void cart.add(product.id, Number(quantity))}
+                disabled={!selectedVariant || selectedVariant.quantity < 1 || !quantityValid || cart.loading}
+                onClick={() => selectedVariant && void cart.add(product.id, selectedVariant.id, Number(quantity))}
               >
                 Agregar al carrito
               </Button>

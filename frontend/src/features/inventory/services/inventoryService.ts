@@ -4,11 +4,20 @@ import type { Inventory } from '../types';
 export const inventoryService = {
   get: async (storeId: string, productId: string) =>
     (await api.get<Inventory>(`/stores/${storeId}/products/${productId}/inventory`)).data,
-  quantity: async (storeId: string, productId: string, quantity: number) =>
+  quantity: async (storeId: string, productId: string, quantity: number, movementType = 'ADJUSTMENT', reason = '') =>
     (
       await api.patch<Inventory>(`/stores/${storeId}/products/${productId}/inventory/quantity`, {
         quantity,
+        movementType,
+        reason,
       })
+    ).data,
+  variantQuantity: async (storeId: string, productId: string, variantId: string, quantity: number, movementType = 'ADJUSTMENT', reason = '') =>
+    (
+      await api.patch<Inventory>(
+        `/stores/${storeId}/products/${productId}/inventory/variants/${variantId}/quantity`,
+        { quantity, movementType, reason },
+      )
     ).data,
   threshold: async (storeId: string, productId: string, lowStockThreshold: number) =>
     (

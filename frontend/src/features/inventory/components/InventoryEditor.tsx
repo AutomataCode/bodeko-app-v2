@@ -15,6 +15,8 @@ export interface InventoryEditorProps {
 export function InventoryEditor({ storeId, inventory, onSaved }: InventoryEditorProps) {
   const [quantity, setQuantity] = useState(String(inventory.quantity));
   const [threshold, setThreshold] = useState(String(inventory.lowStockThreshold));
+  const [movementType, setMovementType] = useState('STOCK_ENTRY');
+  const [reason, setReason] = useState('');
   const action = useAction();
   return (
     <section className="card form-stack">
@@ -33,7 +35,7 @@ export function InventoryEditor({ storeId, inventory, onSaved }: InventoryEditor
           if (isInteger(quantity))
             void action
               .run(
-                () => inventoryService.quantity(storeId, inventory.productId, Number(quantity)),
+                () => inventoryService.quantity(storeId, inventory.productId, Number(quantity), movementType, reason),
                 'Cantidad actualizada.',
               )
               .then((result) => {
@@ -52,6 +54,18 @@ export function InventoryEditor({ storeId, inventory, onSaved }: InventoryEditor
           required
           error={!isInteger(quantity) ? 'Ingresa un entero entre 0 y 2147483647.' : ''}
         />
+        <label className="field">
+          <span>Tipo de movimiento</span>
+          <select value={movementType} onChange={(event) => setMovementType(event.target.value)}>
+            <option value="STOCK_ENTRY">Entrada al inventario</option>
+            <option value="ADJUSTMENT">Ajuste de conteo</option>
+            <option value="RETURN">Devolución</option>
+            <option value="DAMAGE">Merma o daño</option>
+            <option value="LOSS">Pérdida</option>
+          </select>
+        </label>
+        <Field label="Motivo" example="Reposición de mercadería" value={reason} maxLength={500}
+          onChange={setReason} />
         <Button type="submit" pending={action.pending} disabled={!isInteger(quantity)}>
           Guardar cantidad
         </Button>

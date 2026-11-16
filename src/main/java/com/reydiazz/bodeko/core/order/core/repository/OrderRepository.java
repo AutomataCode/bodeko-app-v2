@@ -48,6 +48,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID >{
 
     Optional<Order> findByIdAndStoreId(UUID id, UUID storeId);
 
+    /** Bloquea una orden mientras se crea su documento para evitar correlativos duplicados. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdForDocumentUpdate(@Param("id") UUID id);
+
     Page<Order> findAllByStoreId(UUID storeId, Pageable pageable);
 
     Page<Order> findAllByStoreIdAndStatus(UUID storeId, OrderStatus status, Pageable pageable);

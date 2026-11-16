@@ -24,6 +24,10 @@ public record OrderResponse(
         BigDecimal appliedTaxRate,
         OrderStatus status,
         OffsetDateTime createdAt,
-        List<OrderItemResponse> items
+        List<OrderItemResponse> items,
+        String trackingCarrier,
+        String trackingNumber,
+        String trackingUrl,
+        OffsetDateTime estimatedDeliveryAt
 ) {
 }

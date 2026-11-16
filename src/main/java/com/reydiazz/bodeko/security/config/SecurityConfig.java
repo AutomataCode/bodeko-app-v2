@@ -3,6 +3,7 @@ package com.reydiazz.bodeko.security.config;
 import com.reydiazz.bodeko.core.store.util.StoreRouters;
 import com.reydiazz.bodeko.core.user.core.model.enums.UserRole;
 import com.reydiazz.bodeko.security.auth.util.AuthRoutes;
+import com.reydiazz.bodeko.security.authorization.component.CustomerStoreAuthorizationManager;
 import com.reydiazz.bodeko.security.authorization.component.StoreOwnerAuthorizationManager;
 import com.reydiazz.bodeko.security.authorization.util.CustomerRoutes;
 import com.reydiazz.bodeko.security.authorization.util.PublicRoutes;
@@ -58,6 +59,7 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final ObjectMapper objectMapper;
     private final StoreOwnerAuthorizationManager storeOwnerAuthorizationManager;
+    private final CustomerStoreAuthorizationManager customerStoreAuthorizationManager;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -100,11 +102,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, API_PATTERN).permitAll()
                         .requestMatchers(
                                 AuthRoutes.API_BASE + AuthRoutes.LOGIN,
-                                AuthRoutes.API_BASE + AuthRoutes.REGISTER_CUSTOMER,
-                                AuthRoutes.API_BASE + AuthRoutes.REGISTER_OWNER)
+                                AuthRoutes.API_BASE + AuthRoutes.REGISTER_OWNER,
+                                AuthRoutes.STORE_LOGIN_PATTERN,
+                                AuthRoutes.STORE_REGISTER_PATTERN)
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, PublicRoutes.PATTERN).permitAll()
+                        .requestMatchers(CustomerRoutes.STORE_PATTERN).access(customerStoreAuthorizationManager)
                         .requestMatchers(CustomerRoutes.PATTERN).hasRole(UserRole.CUSTOMER.name())
+                        .requestMatchers("/api/super-admin/**").hasRole(UserRole.SUPER_ADMIN.name())
                         .requestMatchers(StoreRouters.API_BASE).hasRole(UserRole.ADMIN.name())
                         .requestMatchers(StoreScopeRoutes.PATTERN).access(storeOwnerAuthorizationManager)
                         .anyRequest().authenticated()

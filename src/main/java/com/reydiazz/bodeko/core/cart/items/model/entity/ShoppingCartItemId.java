@@ -13,5 +13,5 @@ import java.util.UUID;
 public class ShoppingCartItemId implements Serializable {
 
     private UUID cartId;
-    private UUID productId;
+    private UUID variantId;
 }

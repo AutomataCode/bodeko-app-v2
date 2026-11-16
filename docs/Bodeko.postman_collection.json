@@ -1,0 +1,1574 @@
+{
+  "info": {
+    "_postman_id": "0fc5eecc-ab64-4b93-b7a3-a55713dacf44",
+    "name": "Bodeko API",
+    "description": "Todos los endpoints del backend Bodeko. Orden sugerido: registrar propietario → crear tienda → categoría → producto (ponerlo ACTIVE y con stock) → registrar cliente en la tienda → carrito → checkout → pago. Las peticiones de login, registro y creación guardan tokens e IDs en las variables de la colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "ownerToken",
+      "value": ""
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "storeId",
+      "value": ""
+    },
+    {
+      "key": "subdomain",
+      "value": "cafe-andino"
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "productId",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticación",
+      "auth": {
+        "type": "noauth"
+      },
+      "description": "Propietarios usan /api/auth/login. Los clientes inician sesión dentro de cada tienda.",
+      "item": [
+        {
+          "name": "Registrar propietario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register-owner",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register-owner"
+              ]
+            },
+            "description": "Crea una cuenta de propietario (tabla users) y devuelve su token.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"propietario@correo.com\",\n  \"password\": \"Password123\",\n  \"fullName\": \"María García\",\n  \"phoneNumber\": \"+51987654321\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.token; if (v) pm.collectionVariables.set('ownerToken', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login propietario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Guarda el token en {{ownerToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"propietario@correo.com\",\n  \"password\": \"Password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.token; if (v) pm.collectionVariables.set('ownerToken', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar cliente en tienda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/stores/{{storeId}}/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "stores",
+                "{{storeId}}",
+                "register"
+              ]
+            },
+            "description": "Crea un cliente de esa tienda (tabla customers). El mismo correo puede existir en otras tiendas. phoneNumber, documentType y documentNumber son opcionales (DNI, RUC, CE, PASSPORT).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@correo.com\",\n  \"password\": \"Password123\",\n  \"fullName\": \"Juan Pérez\",\n  \"phoneNumber\": \"+51912345678\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"12345678\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.token; if (v) pm.collectionVariables.set('customerToken', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login cliente en tienda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/stores/{{storeId}}/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "stores",
+                "{{storeId}}",
+                "login"
+              ]
+            },
+            "description": "El token solo sirve en esta tienda. Guarda el token en {{customerToken}}.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@correo.com\",\n  \"password\": \"Password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.token; if (v) pm.collectionVariables.set('customerToken', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mi cuenta (propietario)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Datos de la cuenta del token de propietario.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{ownerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mi cuenta (cliente)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Incluye storeId de la tienda del cliente.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Público (sin sesión)",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Listar tiendas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j[0] && j[0].id; if (v) pm.collectionVariables.set('storeId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tiendas más vendidas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores/top-selling",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores",
+                "top-selling"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Tienda por subdominio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores/by-subdomain/{{subdomain}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores",
+                "by-subdomain",
+                "{{subdomain}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.id; if (v) pm.collectionVariables.set('storeId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categorías de la tienda",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores/{{storeId}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores",
+                "{{storeId}}",
+                "categories"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Buscar en catálogo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores/{{storeId}}/products?search=café&categoryId={{categoryId}}&inStock=true&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores",
+                "{{storeId}}",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "café",
+                  "disabled": true
+                },
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "inStock",
+                  "value": "true",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Solo productos ACTIVE. Filtros opcionales."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.content && j.content[0] && j.content[0].id; if (v) pm.collectionVariables.set('productId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Producto del catálogo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/public/stores/{{storeId}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Propietario: tiendas",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{ownerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Crear tienda",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Café Andino\",\n  \"taxId\": \"20123456789\",\n  \"legalName\": \"Café Andino S.A.C.\",\n  \"subdomain\": \"cafe-andino\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.id; if (v) pm.collectionVariables.set('storeId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mis tiendas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j[0] && j[0].id; if (v) pm.collectionVariables.set('storeId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle de tienda",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Cambiar IGV",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/tax-rate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "tax-rate"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taxRate\": 0.18\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Propietario: categorías",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{ownerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Crear categoría",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "categories"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bebidas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.id; if (v) pm.collectionVariables.set('categoryId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar categorías",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "categories"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Editar categoría",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bebidas y café\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Eliminar categoría",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/categories/{{categoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "categories",
+                "{{categoryId}}"
+              ]
+            },
+            "description": "Falla si la categoría tiene productos."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Propietario: productos",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{ownerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Crear producto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Café peruano 250 g\",\n  \"description\": \"Tostado medio\",\n  \"basePrice\": 25.9,\n  \"imageUrl\": \"https://example.com/cafe.jpg\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"taxExempt\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.id; if (v) pm.collectionVariables.set('productId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Detalle de producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Editar producto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Café peruano 250 g\",\n  \"description\": \"Tostado oscuro\",\n  \"basePrice\": 27.5,\n  \"imageUrl\": \"https://example.com/cafe.jpg\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"taxExempt\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cambiar estado de producto",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "status"
+              ]
+            },
+            "description": "Valores: DRAFT, ACTIVE, INACTIVE, ARCHIVED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Propietario: inventario y ofertas",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{ownerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Ver inventario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/inventory",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "inventory"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Cambiar stock",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/inventory/quantity",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "inventory",
+                "quantity"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cambiar umbral de stock bajo",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/inventory/low-stock-threshold",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "inventory",
+                "low-stock-threshold"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lowStockThreshold\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Crear oferta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/offers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "offers"
+              ]
+            },
+            "description": "Descuento porcentual entre 0.01 y 99.99. Las fechas no pueden solaparse con otra oferta.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"discountPercentage\": 15.0,\n  \"startsAt\": \"2026-11-12T00:00:00-05:00\",\n  \"endsAt\": \"2026-11-30T23:59:59-05:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Listar ofertas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/products/{{productId}}/offers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "products",
+                "{{productId}}",
+                "offers"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Propietario: órdenes",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{ownerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Listar órdenes de la tienda",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/orders?status=PAID&page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PAID",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.content && j.content[0] && j.content[0].id; if (v) pm.collectionVariables.set('orderId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalle de orden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Cambiar estado de orden",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Opcional: reutiliza la misma clave para reintentar sin duplicar."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stores/{{storeId}}/orders/{{orderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "stores",
+                "{{storeId}}",
+                "orders",
+                "{{orderId}}",
+                "status"
+              ]
+            },
+            "description": "Valores: PENDING, PAID, SHIPPED, DELIVERED, CANCELLED (solo transiciones válidas).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHIPPED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Cliente: carrito y compra",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{customerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "description": "Requiere un token de cliente de la misma tienda ({{storeId}}); con otra tienda responde 403.",
+      "item": [
+        {
+          "name": "Ver carrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "cart"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Agregar producto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cambiar cantidad",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/cart/items/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "cart",
+                "items",
+                "{{productId}}"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Quitar producto",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/cart/items/{{productId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "cart",
+                "items",
+                "{{productId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Checkout (crear orden)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Opcional: reutiliza la misma clave para reintentar sin duplicar."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "orders"
+              ]
+            },
+            "description": "Boleta: RECEIPT con DNI. Factura: INVOICE con RUC, businessName y billingAddress.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invoiceType\": \"RECEIPT\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"12345678\",\n  \"businessName\": null,\n  \"billingAddress\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code < 300) { const j = pm.response.json(); const v = j.id; if (v) pm.collectionVariables.set('orderId', v); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver orden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Pagar orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Opcional: reutiliza la misma clave para reintentar sin duplicar."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/stores/{{storeId}}/orders/{{orderId}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "stores",
+                "{{storeId}}",
+                "orders",
+                "{{orderId}}",
+                "payments"
+              ]
+            },
+            "description": "sourceId es el token de tarjeta que devuelve Culqi (modo de prueba).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceId\": \"tkn_test_xxxxxxxxxxxx\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Cliente: mis órdenes",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{customerToken}}",
+            "type": "string"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Mis órdenes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/orders?status=PENDING&page=0&size=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0",
+                  "disabled": false
+                },
+                {
+                  "key": "size",
+                  "value": "10",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Detalle de mi orden",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/orders/{{orderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "orders",
+                "{{orderId}}"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "Cancelar mi orden",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "description": "Opcional: reutiliza la misma clave para reintentar sin duplicar."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/orders/{{orderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "orders",
+                "{{orderId}}",
+                "cancel"
+              ]
+            },
+            "description": "Solo órdenes PENDING o PAID. Si estaba pagada, se reembolsa."
+          }
+        }
+      ]
+    }
+  ]
+}
